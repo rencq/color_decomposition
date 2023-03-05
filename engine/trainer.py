@@ -259,10 +259,10 @@ class Trainer:
         print('training finished!')
 
         tensorf.save(f'{self.ckpt_dir}/{args.expname}_last.th')
-        # self.render_test(tensorf)
+        self.render_test(tensorf)
         print('evaluation finished!')
 
-        np.save('palette_rgb_11.npy',tensorf.get_palette_array().detach().cpu().numpy())
+        # np.save('palette_rgb_11.npy',tensorf.get_palette_array().detach().cpu().numpy())
         print('save palette finished~+!!!!')
 
     def train_one_batch(self, tensorf, iteration, rays_train, rgb_train):

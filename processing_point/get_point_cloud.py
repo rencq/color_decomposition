@@ -101,7 +101,12 @@ def write_point_cloud_with_color_decomposition(test_dataset, tensorf, args, rend
 
         rgb_map = res['rgb_map']
         depth_map = res['depth_map']
-        true_idx = plt_color_decomposition(rgb_map,palette_rgb=palette,eps=eps)
+        is_vis_plt = (palette is not None) and ('opaque_map' in res)
+        opaque = None
+        if is_vis_plt:
+            opaque = res['opaque_map']
+        print(f'=====is_opaque ====>{is_vis_plt}')
+        true_idx = plt_color_decomposition(opaque,rgb_map,palette_rgb=palette,eps=eps,is_opaque=is_vis_plt)
         point_cloud = rays[...,:3] + rays[...,3:6] * torch.reshape(depth_map,(-1,1))
         for i in range(palette_number):
             point_cloud_tmp = point_cloud[true_idx[i]]

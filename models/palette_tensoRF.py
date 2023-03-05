@@ -7,8 +7,8 @@ from .tensoRF import TensorVMSplit
 from .tensorBase import positional_encoding, RenderBufferProp
 from .loss import soft_L0_norm
 from .palette import FreeformPalette
-
-
+from point_Model.point import point_cloud,point_cloud_classical,point_cloud_classical_num
+from point_engine.train import get_class_index
 '''
 主要做调色板混合
 '''
@@ -16,7 +16,7 @@ class PLTRender(torch.nn.Module):
     '''
     Color decomposition scheme: alpha blending
     '''
-    def __init__(self, inChanel, viewpe=6, feape=6, featureC=128, alpha_blend=False, palette=None, learn_palette=False, palette_init='userinput', soft_l0_sharpness=24.):
+    def __init__(self, inChanel, viewpe=6, feape=6, featureC=128, alpha_blend=False, palette=None, learn_palette=False, palette_init='userinput', soft_l0_sharpness=24.,**kwargs):
         super().__init__()
 
         len_palette = len(palette)
@@ -27,7 +27,8 @@ class PLTRender(torch.nn.Module):
         self.n_dim = 3 + len_palette
         self.learn_palette = learn_palette
         self.soft_l0_sharpness = soft_l0_sharpness
-
+        self.net1 = None
+        self.net2 = None
         #调色板的训练
         if not learn_palette:
             self.palette = FreeformPalette(len_palette, is_train=False, initial_palette=palette)
@@ -69,6 +70,20 @@ class PLTRender(torch.nn.Module):
 
     #这里对网络计算
     def forward(self, pts, viewdirs, features, is_train=False, **kwargs):
+        #pts xyz  (sample_num , 3)  features (sample_num,27)
+        if kwargs['is_choose'] == True:
+            if ('net1' in kwargs and kwargs['net1']):
+                self.net1 = kwargs['net1']
+                self.net1.to(pts.device)
+            if ( 'net2' in kwargs and kwargs['net2']):
+                self.net2 = kwargs['net2']
+
+            if self.net1 and self.net2:
+                pts_choice = []
+                for i in range(len(self.net2)):
+                    self.net2[f'model{i}'].to(pts.device)
+                    pts_choice.append(get_class_index(self.net2[f'model{i}'](self.net1(pts.type(torch.float64)))))
+
         indata = [features, viewdirs]
         if self.feape > 0:
             indata.append(positional_encoding(features, self.feape))
@@ -80,7 +95,9 @@ class PLTRender(torch.nn.Module):
         palette = self.palette
         if not is_train and 'palette' in kwargs:
             palette = kwargs['palette'].to(pts.device)
-            #new_palette = kwargs['new_palette'].to(pts.device)
+
+            if 'new_palette' in kwargs and kwargs['new_palette'] :
+                new_palette = kwargs['new_palette']
 
             #调试  以50%的概率选择调色盘
             # x = random.uniform(0,1)
@@ -100,7 +117,17 @@ class PLTRender(torch.nn.Module):
             sparsity_weight = torch.ones(bary_coord.shape[1]).to(bary_coord.device)
             conv_residual = torch.abs(1. - torch.sum(bary_coord, dim=-1, keepdim=True))
 
-        rgb = bary_coord @ palette  # operator overload
+        if kwargs['is_choose'] == True:
+            palette_all = torch.ones(size=(pts.shape[0],len(palette),3),dtype=torch.float64).to(pts.device)
+            for i in range(len(palette)):
+                index = pts_choice[i][1] > 0.9
+                index2 = pts_choice[i][0][index].type(torch.long)
+                tt = new_palette[i][index2]
+                palette_all[index,i,:] = tt
+                palette_all[index==False,i,:] = new_palette[i][-1]
+            rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)
+        else:
+            rgb = bary_coord @ palette  # operator overload
 
         sparsity_weight = sparsity_weight.unsqueeze(0)
         sparsity = torch.sum(sparsity_weight * soft_L0_norm(bary_coord, scale=self.soft_l0_sharpness), dim=-1, keepdim=True)
@@ -128,7 +155,7 @@ class PaletteTensorVM(TensorVMSplit):
             raise NotImplementedError
 
 
-        return PLTRender(self.app_dim, view_pe, fea_pe, featureC, alpha_blend, palette, learn_palette, palette_init, soft_l0_sharpness).to(self.device)
+        return PLTRender(self.app_dim, view_pe, fea_pe, featureC, alpha_blend, palette, learn_palette, palette_init, soft_l0_sharpness,**kwargs).to(self.device)
     
     def get_palette_array(self):
         return self.renderModule.palette.get_palette_array()

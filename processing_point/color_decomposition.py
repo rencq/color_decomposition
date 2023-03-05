@@ -23,6 +23,11 @@ def color_decomposition(rgbs,palette_rgb,dataset=None,fg=None,plt_vote_map_idx=0
     # all_rgb_maps = all_rgb_cp.reshape(-1,h,w,3)
     return pixel_color_index
 
+def opaque_decompostition(opaque):
+
+    true_idx = torch.argmax(opaque,dim=-1)
+    return true_idx
+
 
 def color_Ed(rgbs,palette_rgb,idx,epos):
 
@@ -73,7 +78,7 @@ def plot_color_decomposition_idx(ds_test_dataset,rgbs,palette_rgb,plot_palette_c
 
 ##return different color
 ##not white fg
-def plt_color_decomposition(rgb,palette_rgb,dataset=None,eps=None):
+def plt_color_decomposition(opaque,rgb,palette_rgb,dataset=None,eps=None,is_opaque=True):
 
     # palette_rgb = palette_rgb.clip(0.,1.)
 
@@ -88,21 +93,28 @@ def plt_color_decomposition(rgb,palette_rgb,dataset=None,eps=None):
     rgbs = torch.reshape(rgbs,(-1,3))
     palette_rgb = torch.tensor(palette_rgb)
     palette_number = palette_rgb.shape[0]
-    color_deco = color_decomposition(rgbs,palette_rgb) # bs * h * w
 
-    # change color distance
-    dist = color_Ed(rgbs,palette_rgb,color_deco,eps)
-    # print(rgbs)
-    print(palette_rgb)
     true_idx = []
+    if not is_opaque:
+        color_deco = color_decomposition(rgbs,palette_rgb) # bs * h * w
 
-    for i in range(palette_number):
-        dist_tmp = dist.clone()
-        idx = (color_deco == i)
-        dist_tmp[idx==False] = False
-        idx = dist_tmp.clone()
-        true_idx.append(idx.tolist())
+        # change color distance
+        dist = color_Ed(rgbs,palette_rgb,color_deco,eps)
+        # print(rgbs)
+        print(palette_rgb)
 
+        for i in range(palette_number):
+            dist_tmp = dist.clone()
+            idx = (color_deco == i)
+            dist_tmp[idx==False] = False
+            idx = dist_tmp.clone()
+            true_idx.append(idx.tolist())
+    else:
+        opaque_deco = opaque_decompostition(opaque)
+        for i in range(palette_number):
+            idx = (opaque_deco == i)
+            idx = idx.clone()
+            true_idx.append(idx.tolist())
     # if dataset is not None and dataset.white_bg and fg is not None:
     #     all_rgb_cp = dataset.all_rgbs.clone().cpu()
     #     all_rgb_cp_original = dataset.all_rgbs.clone().cpu()

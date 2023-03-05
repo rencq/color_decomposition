@@ -19,6 +19,7 @@ from utils.opt import config_parser
 from utils.vis import plot_palette_colors, visualize_depth_numpy, visualize_palette_components_numpy
 from utils.color import rgb2hex, hex2rgb
 from utils.ray import get_rays, ndc_rays_blender
+from point_Model.point import point_cloud,point_cloud_classical,point_cloud_classical_num
 
 
 # %% md
@@ -30,7 +31,7 @@ def print_divider():
 
 
 def render_one_view(test_dataset, tensorf, c2w, renderer, N_samples=-1,
-                    white_bg=False, ndc_ray=False, new_palette=None, palette=None, device='cuda'):
+                    white_bg=False, ndc_ray=False, new_palette=None, palette=None, device='cuda',is_choose=False,net1=None,net2=None):
     torch.cuda.empty_cache()
 
     near_far = test_dataset.near_far
@@ -53,7 +54,7 @@ def render_one_view(test_dataset, tensorf, c2w, renderer, N_samples=-1,
     # N_samples=-1, white_bg=white_bg, ndc_ray=ndc_ray, device=trainer.device)
     # trainer.render 等于 chunkify_render
     res = renderer(rays, tensorf, chunk=2048, N_samples=N_samples, new_palette=new_palette, palette=palette,
-                   ndc_ray=ndc_ray, white_bg=white_bg, device=device, ret_opaque_map=True)
+                   ndc_ray=ndc_ray, white_bg=white_bg, device=device, ret_opaque_map=True,is_choose=is_choose,net1=net1,net2=net2)
 
     rgb_map = res['rgb_map']
     depth_map = res['depth_map']
@@ -135,43 +136,49 @@ print('Downsampled dataset loaded')
 # %% md
 ## Palette Editing
 # %%
-palette_prior = np.load('palette_rgb.npy')
-palette = model.renderModule.palette.get_palette_array().detach().cpu().numpy()
-# %%
-print('Initial palette prior:')
-plot_palette_colors(palette_prior,'palette_prior_image.jpg')
-print(palette)
-plot_palette_colors(palette,'palette_image.jpg')
-print(palette_prior)
-# %%
+def palette_editing():
+    palette_prior = np.load('palette_rgb_11.npy')
+    palette = model.renderModule.palette.get_palette_array().detach().cpu().numpy()
+    palette = palette.clip(0. ,1.)
+    palette_prior = palette_prior.clip(0.,1.)
+    # %%
+    print('Initial palette prior:')
+    plot_palette_colors(palette_prior,'palette_prior_image.jpg')
+    print(palette)
+    plot_palette_colors(palette,'palette_image.jpg')
+    print(palette_prior)
+    # %%
 
-palette_num = palette.shape[0]
+    palette_num = palette.shape[0]
 
-palette_max = 50
+    palette_max = 50
 
-palette_color = np.load('./data_palette/fern/rgb_palette.npy')
-print("palette_color = \n",palette_color)
-plot_palette_colors(palette_color,'palette_color.jpg')
+    palette_color = np.load('./data_palette/fern/rgb_palette.npy')
+    print("palette_color = \n",palette_color)
+    plot_palette_colors(palette_color,'palette_color.jpg')
 
-new_palette = torch.ones((palette_num,palette_max,palette_num,3))
-new_palette[...,:,:] = palette.copy()
-print(new_palette)
+    new_palette = torch.ones((palette_num,palette_max,palette_num,3))
+    new_palette[...,:,:] = torch.tensor(palette)
+    print("=====> new palette shape")
+    print(new_palette.shape)
+    print("====> new palette\n")
+    print(new_palette)
 
-# %%
-print('Optimized palette:')
-new_palette = palette.clip(0., 1.)
+    # %%
+    print('Optimized palette:')
+    new_palette = palette.clip(0., 1.)
 
-# new_palette = new_palette.clip(0.5, 0.7)
-print(new_palette)
-plot_palette_colors(new_palette,'new_palette_image.jpg')
-# %%
+    # new_palette = new_palette.clip(0.5, 0.7)
+    print(new_palette)
+    plot_palette_colors(new_palette,'new_palette_image.jpg')
+    # %%
 
 
 
 print('Palette for rendering:')
 
 
-def render_one():
+def render_one(palette,new_palette,is_choose=False,net1=None,net2=None):
     render_cam_idx = 1
 
     c2w = ds_test_dataset.poses[render_cam_idx]
@@ -180,9 +187,9 @@ def render_one():
 
     with torch.no_grad():
         rgb, depth, plt_decomps = render_one_view(ds_test_dataset, model, c2w, trainer.renderer,
-                                                  palette=torch.from_numpy(palette),
-                                                  new_palette=torch.from_numpy(new_palette),
-                                                  N_samples=-1, white_bg=white_bg, ndc_ray=ndc_ray, device=trainer.device)
+                                                  palette=palette,
+                                                  new_palette=new_palette,
+                                                  N_samples=-1, white_bg=white_bg, ndc_ray=ndc_ray, device=trainer.device,is_choose=is_choose,net1=net1,net2=net2)
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 16))
     axes[0].set_axis_off()
@@ -197,8 +204,8 @@ def render_one():
 # Run the cells below to save this editing
 
 '''Modify this to name this editing'''
-edit_name = 'red_chair'
-def save_palette():
+edit_name = 'test_fern12'
+def save_palette(new_palette):
 
     assert edit_name
 
@@ -217,7 +224,7 @@ def save_palette():
 
 # %%
     '''Choose between 'test' / 'path' '''
-def save():
+def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None):
     cam_poses = 'test'
 
     save_dir = os.path.join(out_dir, f'render_{cam_poses}{"_" + edit_name if edit_name else ""}')
@@ -235,8 +242,47 @@ def save():
         print('=== render path ======>', c2ws.shape)
         with torch.no_grad():
             evaluation_path(trainer.test_dataset, model, c2ws, trainer.renderer, save_dir,
-                            palette=torch.from_numpy(palette), new_palette=torch.from_numpy(new_palette),
-                            N_samples=-1, white_bg=white_bg, ndc_ray=ndc_ray, save_video=True, device=trainer.device)
+                            palette=palette, new_palette=new_palette,
+                            N_samples=N_samples, white_bg=white_bg, ndc_ray=ndc_ray, save_video=True, device=trainer.device,is_choose=is_choose,net1=net1,net2=net2)
     # %%
 
 # %%
+# palette_prior = np.load('palette_rgb_11.npy')
+palette = model.renderModule.palette.get_palette_array().detach()
+palette = palette.clip(0. ,1.)
+# palette_prior = palette_prior.clip(0.,1.)
+print(palette)
+# print(palette_prior)
+# save(palette_prior,palette)
+edit = 5
+new_palette = []
+input_num = []
+out_put_num = []
+device = trainer.device
+for i in range(edit):
+    indata = f"/home/ubuntu/Rencq/nerf_data/point_cloud/fern/opaque_3/eps007points40/out_point_cloud{i}.txt"
+
+    input = np.loadtxt(indata)
+    input = torch.tensor(input,dtype=torch.float64)
+    maxlabel = max(input[...,3])
+    output = int(maxlabel+1)
+    print(output)
+    input_num.append(256)
+    out_put_num.append(output)
+    new_palette.append(palette[i].repeat(output+1).reshape((-1,palette.shape[1])).type(torch.float64).to(device))
+print("======>new_palette\n")
+print(new_palette)
+net1 = point_cloud(3,1,1,256)
+net1.load_state_dict(torch.load('./logs/point_cloud/model1_param_0.pth',map_location=device))
+print("========>  load net1 state_dict finished ")
+net2 = point_cloud_classical_num(5,input_num,out_put_num)
+
+for i in range(edit):
+    net2[f'model{i}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{i}.pth',map_location=device))
+print("========>  load net2 state_dict finished ")
+print("nSamples =====> ",args.nSamples)
+new_palette[0][2] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+new_palette[0][3:5] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+print("=======> changed new palette")
+print(new_palette)
+save(palette.cpu(),new_palette,N_samples=args.nSamples,is_choose=True,net1=net1,net2=net2)

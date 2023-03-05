@@ -15,9 +15,10 @@ from utils.vis import visualize_depth_numpy, visualize_palette_components_numpy
 
 @torch.no_grad()
 def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_samples=-1, white_bg=False, ndc_ray=False,
-                compute_extra_metrics=True, save_gt=False, save_video=False, palette=None, new_palette=None,device='cuda'):
+                compute_extra_metrics=True, save_gt=False, save_video=False, palette=None, new_palette=None,device='cuda',is_choose=False,net1=None,net2=None):
     PSNRs, rgb_maps, depth_maps = [], [], []
     plt_decomp_maps = []
+    plt_opaque_maps = []
     ssims, l_alex, l_vgg = [], [], []
 
     if savePath is not None:
@@ -40,7 +41,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
 
         # plt_map, _, depth_map, _, _
         res = renderer(rays, tensorf, chunk=4096, N_samples=N_samples, ndc_ray=ndc_ray, white_bg=white_bg, device=device,
-                       ret_opaque_map=True, palette=palette,new_palette=new_palette)
+                       ret_opaque_map=True, palette=palette,new_palette=new_palette,is_choose=is_choose,net1=net1,net2=net2)
         # rgb_map = plt_map[..., :3].clamp(0.0, 1.0)
         rgb_map = res['rgb_map']
         depth_map = res['depth_map']
@@ -77,12 +78,13 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
             plt_decomp = visualize_palette_components_numpy(opaque.numpy(), palette.numpy())
             plt_decomp = (plt_decomp * 255).astype('uint8')
             plt_decomp_maps.append(plt_decomp)
-        
+            plt_opaque_maps.append(opaque.numpy())
         if savePath is not None:
             imageio.imwrite(os.path.join(savePath, f'rgb_{idx:03d}.png'), rgb_map)
             imageio.imwrite(os.path.join(savePath, f'depth_{idx:03d}.png'), depth_map)
             if is_vis_plt:
                 imageio.imwrite(os.path.join(savePath, f'plt_decomp_{idx:03d}.png'), plt_decomp)
+                np.save(os.path.join(savePath,f'plt_opaque_{idx:03d}.npy'),opaque.numpy())
 
     if save_video and savePath is not None:
         fps = min(len(rgb_maps) / 5, 30)
@@ -107,7 +109,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
 
 @torch.no_grad()
 def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samples=-1,
-                    white_bg=False, ndc_ray=False, save_video=False, palette=None,new_palette=None, device='cuda'):
+                    white_bg=False, ndc_ray=False, save_video=False, palette=None,new_palette=None, device='cuda',is_choose=False,net1=None,net2=None):
     rgb_maps, depth_maps = [], []
     plt_decomp_maps = []
 
@@ -132,7 +134,7 @@ def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samp
         rays = torch.cat([rays_o, rays_d], 1)  # (h*w, 6)
 
         res = renderer(rays, tensorf, chunk=4096, N_samples=N_samples, ndc_ray=ndc_ray, white_bg=white_bg, device=device,
-                       ret_opaque_map=True, new_palette=new_palette,palette=palette)
+                       ret_opaque_map=True, new_palette=new_palette,palette=palette,is_choose=is_choose,net1=net1,net2=net2)
         # rgb_map = rend_map[..., :3].clamp(0.0, 1.0)
         rgb_map = res['rgb_map']
         depth_map = res['depth_map']

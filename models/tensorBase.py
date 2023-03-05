@@ -464,12 +464,13 @@ class TensorBase(torch.nn.Module):
 
         alpha, weight, bg_weight = raw2alpha(sigma, dists * self.distance_scale)
 
+        #choose sample point
         app_mask = weight > self.rayMarch_weight_thres
 
         if app_mask.any():
             app_features = self.compute_appfeature(xyz_sampled[app_mask])
             valid_render_bufs = self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)
-            render_buf[app_mask] = valid_render_bufs
+            render_buf[app_mask] = valid_render_bufs.type(torch.float32)
 
         ret = {}
 
