@@ -204,7 +204,7 @@ def render_one(palette,new_palette,is_choose=False,net1=None,net2=None):
 # Run the cells below to save this editing
 
 '''Modify this to name this editing'''
-edit_name = 'test_fern12'
+edit_name = 'test_fern14'
 def save_palette(new_palette):
 
     assert edit_name
@@ -224,7 +224,7 @@ def save_palette(new_palette):
 
 # %%
     '''Choose between 'test' / 'path' '''
-def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None):
+def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None,probability=0.):
     cam_poses = 'test'
 
     save_dir = os.path.join(out_dir, f'render_{cam_poses}{"_" + edit_name if edit_name else ""}')
@@ -243,7 +243,7 @@ def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None):
         with torch.no_grad():
             evaluation_path(trainer.test_dataset, model, c2ws, trainer.renderer, save_dir,
                             palette=palette, new_palette=new_palette,
-                            N_samples=N_samples, white_bg=white_bg, ndc_ray=ndc_ray, save_video=True, device=trainer.device,is_choose=is_choose,net1=net1,net2=net2)
+                            N_samples=N_samples, white_bg=white_bg, ndc_ray=ndc_ray, save_video=True, device=trainer.device,is_choose=is_choose,net1=net1,net2=net2,probability=probability)
     # %%
 
 # %%
@@ -281,8 +281,8 @@ for i in range(edit):
     net2[f'model{i}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{i}.pth',map_location=device))
 print("========>  load net2 state_dict finished ")
 print("nSamples =====> ",args.nSamples)
-new_palette[0][2] = torch.tensor([1.,0.,0.],dtype=torch.float64)
-new_palette[0][3:5] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+new_palette[0][1:3] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+new_palette[0][3:6] = torch.tensor([1.,0.,0.],dtype=torch.float64)
 print("=======> changed new palette")
 print(new_palette)
-save(palette.cpu(),new_palette,N_samples=args.nSamples,is_choose=True,net1=net1,net2=net2)
+save(palette.cpu(),new_palette,N_samples=args.nSamples,is_choose=True,net1=net1,net2=net2,probability=0.5)

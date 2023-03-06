@@ -120,7 +120,7 @@ class PLTRender(torch.nn.Module):
         if kwargs['is_choose'] == True:
             palette_all = torch.ones(size=(pts.shape[0],len(palette),3),dtype=torch.float64).to(pts.device)
             for i in range(len(palette)):
-                index = pts_choice[i][1] > 0.9
+                index = pts_choice[i][1] >= kwargs['probability']
                 index2 = pts_choice[i][0][index].type(torch.long)
                 tt = new_palette[i][index2]
                 palette_all[index,i,:] = tt
