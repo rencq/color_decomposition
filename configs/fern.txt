@@ -35,6 +35,7 @@ TV_weight_app = 1.0
 
 Plt_bd_weight = 1.
 Plt_opaque_sps_weight = 1e-3
+Plt_color_weight = 0.001
 
 palette_path = ./data_palette/fern/rgb_palette.npy
 learn_palette = True

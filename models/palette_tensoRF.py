@@ -71,7 +71,7 @@ class PLTRender(torch.nn.Module):
     #这里对网络计算
     def forward(self, pts, viewdirs, features, is_train=False, **kwargs):
         #pts xyz  (sample_num , 3)  features (sample_num,27)
-        if kwargs['is_choose'] == True:
+        if 'is_choose' in kwargs and kwargs['is_choose'] == True:
             if ('net1' in kwargs and kwargs['net1']):
                 self.net1 = kwargs['net1']
                 self.net1.to(pts.device)
@@ -117,7 +117,7 @@ class PLTRender(torch.nn.Module):
             sparsity_weight = torch.ones(bary_coord.shape[1]).to(bary_coord.device)
             conv_residual = torch.abs(1. - torch.sum(bary_coord, dim=-1, keepdim=True))
 
-        if kwargs['is_choose'] == True:
+        if 'is_choose' in kwargs and kwargs['is_choose'] == True:
             palette_all = torch.ones(size=(pts.shape[0],len(palette),3),dtype=torch.float64).to(pts.device)
             for i in range(len(palette)):
                 index = pts_choice[i][1] >= kwargs['probability']

@@ -119,7 +119,7 @@ print_divider()
 
 # Setup trainer
 print('Initializing trainer and model...')
-ckpt_dir = os.path.join(run_dir, 'checkpoints')
+ckpt_dir = os.path.join(run_dir, 'checkpoints_0001')
 tb_dir = os.path.join(run_dir, 'tensorboard')
 # 训练器
 trainer = Trainer(args, run_dir, ckpt_dir, tb_dir)
@@ -157,20 +157,20 @@ def palette_editing():
     print("palette_color = \n",palette_color)
     plot_palette_colors(palette_color,'palette_color.jpg')
 
-    new_palette = torch.ones((palette_num,palette_max,palette_num,3))
-    new_palette[...,:,:] = torch.tensor(palette)
-    print("=====> new palette shape")
-    print(new_palette.shape)
-    print("====> new palette\n")
-    print(new_palette)
-
-    # %%
-    print('Optimized palette:')
-    new_palette = palette.clip(0., 1.)
-
-    # new_palette = new_palette.clip(0.5, 0.7)
-    print(new_palette)
-    plot_palette_colors(new_palette,'new_palette_image.jpg')
+    # new_palette = torch.ones((palette_num,palette_max,palette_num,3))
+    # new_palette[...,:,:] = torch.tensor(palette)
+    # print("=====> new palette shape")
+    # print(new_palette.shape)
+    # print("====> new palette\n")
+    # print(new_palette)
+    #
+    # # %%
+    # print('Optimized palette:')
+    # new_palette = palette.clip(0., 1.)
+    #
+    # # new_palette = new_palette.clip(0.5, 0.7)
+    # print(new_palette)
+    # plot_palette_colors(new_palette,'new_palette_image.jpg')
     # %%
 
 
@@ -204,7 +204,7 @@ def render_one(palette,new_palette,is_choose=False,net1=None,net2=None):
 # Run the cells below to save this editing
 
 '''Modify this to name this editing'''
-edit_name = 'test_fern14'
+edit_name = 'test_fern5'
 def save_palette(new_palette):
 
     assert edit_name
@@ -247,42 +247,51 @@ def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None,pr
     # %%
 
 # %%
+
+"""
+read color
+"""
+# palette_editing()
 # palette_prior = np.load('palette_rgb_11.npy')
+""" color edit"""
 palette = model.renderModule.palette.get_palette_array().detach()
-palette = palette.clip(0. ,1.)
-# palette_prior = palette_prior.clip(0.,1.)
-print(palette)
-# print(palette_prior)
-# save(palette_prior,palette)
-edit = 5
-new_palette = []
-input_num = []
-out_put_num = []
-device = trainer.device
-for i in range(edit):
-    indata = f"/home/ubuntu/Rencq/nerf_data/point_cloud/fern/opaque_3/eps007points40/out_point_cloud{i}.txt"
+palette[...,0,:] = torch.tensor([1.,0.,0.])
 
-    input = np.loadtxt(indata)
-    input = torch.tensor(input,dtype=torch.float64)
-    maxlabel = max(input[...,3])
-    output = int(maxlabel+1)
-    print(output)
-    input_num.append(256)
-    out_put_num.append(output)
-    new_palette.append(palette[i].repeat(output+1).reshape((-1,palette.shape[1])).type(torch.float64).to(device))
-print("======>new_palette\n")
-print(new_palette)
-net1 = point_cloud(3,1,1,256)
-net1.load_state_dict(torch.load('./logs/point_cloud/model1_param_0.pth',map_location=device))
-print("========>  load net1 state_dict finished ")
-net2 = point_cloud_classical_num(5,input_num,out_put_num)
-
-for i in range(edit):
-    net2[f'model{i}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{i}.pth',map_location=device))
-print("========>  load net2 state_dict finished ")
-print("nSamples =====> ",args.nSamples)
-new_palette[0][1:3] = torch.tensor([1.,0.,0.],dtype=torch.float64)
-new_palette[0][3:6] = torch.tensor([1.,0.,0.],dtype=torch.float64)
-print("=======> changed new palette")
-print(new_palette)
-save(palette.cpu(),new_palette,N_samples=args.nSamples,is_choose=True,net1=net1,net2=net2,probability=0.5)
+# palette = model.renderModule.palette.get_palette_array().detach()
+# palette = palette.clip(0. ,1.)
+# # palette_prior = palette_prior.clip(0.,1.)
+# print(palette)
+# # print(palette_prior)
+# # save(palette_prior,palette)
+# edit = 5
+# new_palette = []
+# input_num = []
+# out_put_num = []
+# device = trainer.device
+# for i in range(edit):
+#     indata = f"/home/ubuntu/Rencq/nerf_data/point_cloud/fern/opaque_3/eps007points40/out_point_cloud{i}.txt"
+#
+#     input = np.loadtxt(indata)
+#     input = torch.tensor(input,dtype=torch.float64)
+#     maxlabel = max(input[...,3])
+#     output = int(maxlabel+1)
+#     print(output)
+#     input_num.append(256)
+#     out_put_num.append(output)
+#     new_palette.append(palette[i].repeat(output+1).reshape((-1,palette.shape[1])).type(torch.float64).to(device))
+# print("======>new_palette\n")
+# print(new_palette)
+# net1 = point_cloud(3,1,1,256)
+# net1.load_state_dict(torch.load('./logs/point_cloud/model1_param_0.pth',map_location=device))
+# print("========>  load net1 state_dict finished ")
+# net2 = point_cloud_classical_num(5,input_num,out_put_num)
+#
+# for i in range(edit):
+#     net2[f'model{i}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{i}.pth',map_location=device))
+# print("========>  load net2 state_dict finished ")
+# print("nSamples =====> ",args.nSamples)
+# new_palette[0][1:3] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+# new_palette[0][3:6] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+# print("=======> changed new palette")
+# print(new_palette)
+save(palette.cpu(),new_palette=None,N_samples=args.nSamples)

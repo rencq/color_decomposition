@@ -14,7 +14,7 @@ from tqdm import trange, tqdm
 
 from data import dataset_dict
 from models import MODEL_ZOO
-from models.loss import TVLoss, PaletteBoundLoss
+from models.loss import TVLoss, PaletteBoundLoss,color_weight
 from engine.eval import evaluation, evaluation_path
 from utils.recon import convert_sdf_samples_to_ply
 from utils.render import chunkify_render, N_to_reso, cal_n_samples
@@ -152,6 +152,7 @@ class Trainer:
         # loss function and regularization
         self.tvreg = TVLoss()
         self.plt_bd_reg = PaletteBoundLoss(self.plt_bds_convhull_vtx)
+        self.color_weight = color_weight()
 
         self.Ortho_reg_weight = args.Ortho_weight
         print("[trainer train] initial Ortho_reg_weight", self.Ortho_reg_weight)
@@ -166,6 +167,9 @@ class Trainer:
         print("[trainer train] initial Plt_opaque_conv_weight", self.Plt_opaque_conv_weight)
         self.Plt_opaque_sps_weight = args.Plt_opaque_sps_weight
         print("[trainer train] initial Plt_opaque_sps_weight", self.Plt_opaque_sps_weight)
+        self.Plt_color_weight = args.Plt_color_weight
+        print("[trainer train] initial Plt_color_weight", self.Plt_color_weight)
+
 
         if args.lr_decay_iters > 0:
             self.lr_factor = args.lr_decay_target_ratio ** (1 / args.lr_decay_iters)
@@ -259,10 +263,10 @@ class Trainer:
         print('training finished!')
 
         tensorf.save(f'{self.ckpt_dir}/{args.expname}_last.th')
-        self.render_test(tensorf)
+        # self.render_test(tensorf)
         print('evaluation finished!')
 
-        # np.save('palette_rgb_11.npy',tensorf.get_palette_array().detach().cpu().numpy())
+        np.save('palette_rgb_11.npy',tensorf.get_palette_array().detach().cpu().numpy())
         print('save palette finished~+!!!!')
 
     def train_one_batch(self, tensorf, iteration, rays_train, rgb_train):
@@ -283,7 +287,7 @@ class Trainer:
         loss_dict['img_loss'] = img_loss.clone().detach().item()
 
         total_loss = img_loss
-
+        #res rgb_map opaque_map sparsity_norm_map depth_map
         if 'rgb0_map' in res:
             img_loss_0 = torch.mean((res['rgb0_map'] - rgb_train) ** 2)
             total_loss = total_loss + img_loss_0
@@ -321,6 +325,11 @@ class Trainer:
             loss_opq_sps = torch.mean(res['sparsity_norm_map'])
             total_loss = total_loss + loss_opq_sps * self.Plt_opaque_sps_weight
             loss_dict['opq_sps_loss'] = loss_opq_sps.clone().detach().item()
+        if self.Plt_color_weight > 0 and 'opaque' in res:
+            opaque_map = res['opaque']
+            loss_color_weight = self.color_weight(opaque_map,self.Plt_color_weight)
+            total_loss = total_loss + loss_color_weight
+            loss_dict['color'] = loss_color_weight.clone().detach().item()
 
         loss_dict['total_loss'] = total_loss.clone().detach().item()
 

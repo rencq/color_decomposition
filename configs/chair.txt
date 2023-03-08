@@ -32,6 +32,8 @@ rm_weight_mask_thre = 1e-4
 
 Plt_bd_weight = 1.0
 Plt_opaque_sps_weight = 1e-3
+#color weight
+Plt_color_weight = 0.01
 
 palette_path = ./data_palette/chair/rgb_palette.npy
 learn_palette = True

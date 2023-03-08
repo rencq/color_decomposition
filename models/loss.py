@@ -7,6 +7,13 @@ from scipy.spatial import ConvexHull, Delaunay
 from operator import itemgetter
 from utils.palette_utils.Additive_mixing_layers_extraction import DCPPointTriangle
 
+class color_weight(nn.Module):
+    def __init__(self):
+        super(color_weight, self).__init__()
+
+    def forward(self,x,gama=0.1):
+        loss = torch.sum(torch.exp(x[...,:](1-x[...,:]))-1,dim=-1)
+        return loss * gama
 
 class TVLoss(nn.Module):
     def __init__(self, TVLoss_weight=1):
@@ -52,6 +59,8 @@ class PaletteBoundLoss(nn.Module):
 
             assert torch.isfinite(loss)
         return loss
+
+
 
 
 def soft_L0_norm(x, scale=12.):

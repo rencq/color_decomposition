@@ -6,7 +6,7 @@ from utils.opt import compare_args
 def setup_wd(parser, args):
     # Create log dir and copy the config file
     run_dir = os.path.join(args.basedir, args.expname)  #输出l
-    ckpt_dir = os.path.join(run_dir, 'checkpoints')
+    ckpt_dir = os.path.join(run_dir, 'checkpoints_0001')
     tb_dir = os.path.join(run_dir, 'tensorboard')
     print("+++++++++++++++++++")
     print(tb_dir)
@@ -38,7 +38,7 @@ def setup_wd(parser, args):
                 # # Check hyper-parameters
                 # argval_same, mismatched_keys = compare_args(args, config_file)
                 # if not argval_same:
-                #     raise RuntimeError('These options are inconsistent to the saved checkpoints:', ', '.join(mismatched_keys))
+                #     raise RuntimeError('These options are inconsistent to the saved checkpoints_1:', ', '.join(mismatched_keys))
 
     return run_dir, ckpt_dir, tb_dir
 

@@ -72,7 +72,7 @@ def write_pointcloud(dataset_type='train',):
     args,dataset = read_data(dataset_type=dataset_type,)
 
     print("Initializing trainer and model...")
-    ckpt_dir = os.path.join(run_dir,"checkpoints")
+    ckpt_dir = os.path.join(run_dir,"checkpoints_1")
     tb_dir = os.path.join(run_dir,"tensorboard")
 
     trainer = Trainer(args,run_dir,ckpt_dir, tb_dir)

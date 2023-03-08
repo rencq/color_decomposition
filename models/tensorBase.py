@@ -461,7 +461,7 @@ class TensorBase(torch.nn.Module):
 
             validsigma = self.feature2density(sigma_feature)
             sigma[ray_valid] = validsigma
-
+        #一个ray上的采样点 占的权重
         alpha, weight, bg_weight = raw2alpha(sigma, dists * self.distance_scale)
 
         #choose sample point
@@ -469,6 +469,7 @@ class TensorBase(torch.nn.Module):
 
         if app_mask.any():
             app_features = self.compute_appfeature(xyz_sampled[app_mask])
+            # link PLT_blend
             valid_render_bufs = self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)
             render_buf[app_mask] = valid_render_bufs.type(torch.float32)
 
@@ -479,7 +480,7 @@ class TensorBase(torch.nn.Module):
         acc_map = torch.sum(weight, -1)
         # rgb_map = torch.sum(weight[..., None] * rend_dict['rgb'], -2)
 
-        for buf_prop in self.render_buf_layout:
+        for buf_prop in self.render_buf_layout: #rgb opaque sparsity_norm
             k = buf_prop.name
             if k == 'rgb' or kwargs.get(f'ret_{k}_map', False):
                 if buf_prop.detach_weight:
