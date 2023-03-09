@@ -6,10 +6,11 @@ import torch
 渲染
 '''
 
-
+#计算体素个数
 def N_to_reso(n_voxels, bbox):
     xyz_min, xyz_max = bbox
     dim = len(xyz_min)
+    #体素大小
     voxel_size = ((xyz_max - xyz_min).prod() / n_voxels).pow(1 / dim)
     return ((xyz_max - xyz_min) / voxel_size).long().tolist()
 

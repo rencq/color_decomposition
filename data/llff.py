@@ -104,7 +104,7 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     c2w = average_poses(c2ws_all)
 
     # Get average pose
-    up = normalize(c2ws_all[:, :3, 1].sum(0))
+    up = normalize(c2ws_all[:, :3, 1].sum(0))  #y
 
     # Find a reasonable "focus depth" for this dataset
     dt = 0.75
@@ -115,12 +115,13 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     zdelta = near_fars.min() * .2
     tt = c2ws_all[:, :3, 3]
     rads = np.percentile(np.abs(tt), 90, 0) * rads_scale
+    #渲染位姿
     render_poses = render_path_spiral(c2w, up, rads, focal, zdelta, zrate=.5, N=N_views)
     return np.stack(render_poses)
 
 
 class LLFFDataset(Dataset):
-    def __init__(self, datadir, split='train', downsample=4, is_stack=False, hold_every=8):
+    def __init__(self, datadir, split='train', downsample=4, is_stack=False, hold_every=8 ,spheric_poses=False):
         """
         spheric_poses: whether the images are taken in a spheric inward-facing manner
                        default: False (forward-facing)
@@ -133,13 +134,16 @@ class LLFFDataset(Dataset):
         self.is_stack = is_stack
         self.downsample = downsample
         self.define_transforms()
-
-        self.blender2opencv = np.eye(4)#np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+        self.spheric_poses = spheric_poses
+        self.blender2opencv = np.eye(4)#np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
         self.read_meta()
         self.white_bg = False
-
-        # self.near_far = [np.min(self.near_fars[:,0]),np.max(self.near_fars[:,1])]
-        self.near_far = [0.0, 1.0]
+        # not ndc
+        if self.spheric_poses:
+            self.near_far = [np.min(self.near_fars[:,0])*0.9,np.max(self.near_fars[:,1])*1.1]
+        # ndc self.near_far = [0,1]
+        else:
+            self.near_far = [0.0, 1.0]
         self.scene_bbox = torch.tensor([[-1.5, -1.67, -1.0], [1.5, 1.67, 1.0]])
         # self.scene_bbox = torch.tensor([[-1.67, -1.5, -1.0], [1.67, 1.5, 1.0]])
         self.center = torch.mean(self.scene_bbox, dim=0).float().view(1, 1, 3)
@@ -179,8 +183,8 @@ class LLFFDataset(Dataset):
         near_original = self.near_fars.min()
         scale_factor = near_original * 0.75  # 0.75 is the default parameter
         # the nearest depth is at 1/0.75=1.33
-        self.near_fars /= scale_factor
-        self.poses[..., 3] /= scale_factor
+        self.near_fars /= scale_factor  #near 放缩
+        self.poses[..., 3] /= scale_factor #t 放缩
 
         # build rendering path
         N_views, N_rots = 120, 2
@@ -201,6 +205,7 @@ class LLFFDataset(Dataset):
         average_pose = average_poses(self.poses)
         dists = np.sum(np.square(average_pose[:3, 3] - self.poses[:, :3, 3]), -1)
         i_test = np.arange(0, self.poses.shape[0], self.hold_every)  # [np.argmin(dists)]
+        #测试集 训练集分开
         img_list = i_test if self.split != 'train' else list(set(np.arange(len(self.poses))) - set(i_test))
 
         # use first N_images-1 to train, the LAST is val
@@ -211,6 +216,7 @@ class LLFFDataset(Dataset):
             c2w = torch.FloatTensor(self.poses[i])
 
             img = Image.open(image_path).convert('RGB')
+            #resize  下采样
             if self.downsample != 1.0:
                 img = img.resize(self.img_wh, Image.LANCZOS)
             img = self.transform(img)  # (3, h, w)
@@ -218,7 +224,8 @@ class LLFFDataset(Dataset):
             img = img.view(3, -1).permute(1, 0)  # (h*w, 3) RGB
             self.all_rgbs += [img]
             rays_o, rays_d = get_rays(self.directions, c2w)  # both (h*w, 3)
-            rays_o, rays_d = ndc_rays_blender(H, W, self.focal[0], 1.0, rays_o, rays_d)
+            if not self.spheric_poses:
+                rays_o, rays_d = ndc_rays_blender(H, W, self.focal[0], 1.0, rays_o, rays_d)
             # viewdir = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
 
             self.all_rays += [torch.cat([rays_o, rays_d], 1)]  # (h*w, 6)
@@ -228,7 +235,7 @@ class LLFFDataset(Dataset):
             self.all_rgbs = torch.cat(self.all_rgbs, 0) # (len(self.meta['frames])*h*w,3)
         else:
             self.all_rays = torch.stack(self.all_rays, 0)   # (len(self.meta['frames]),h,w, 3)
-            self.all_rgbs = torch.stack(self.all_rgbs, 0).reshape(-1,*self.img_wh[::-1], 3)  # (len(self.meta['frames]),h,w,3)
+            self.all_rgbs = torch.stack(self.all_rgbs, 0).reshape(-1,* self.img_wh[::-1], 3)  # (len(self.meta['frames]),h,w,3)
 
 
     def define_transforms(self):

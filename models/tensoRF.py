@@ -135,6 +135,7 @@ class TensorVMSplit(TensorBase):
 
     @torch.no_grad()
     def upsample_volume_grid(self, res_target):
+        #上采样
         self.app_plane, self.app_line = self.up_sampling_VM(self.app_plane, self.app_line, res_target)
         self.density_plane, self.density_line = self.up_sampling_VM(self.density_plane, self.density_line, res_target)
 

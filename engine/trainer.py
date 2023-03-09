@@ -73,7 +73,8 @@ class Trainer:
         self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
 
         # init parameters
-        self.aabb = self.train_dataset.scene_bbox.to(self.device)
+        self.aabb = self.train_dataset.scene_bbox.to(self.device) #init [[-1.5,-1.5,-1.5],[1.5,1.5,1.5]]
+        #计算体素个数
         self.reso_cur = N_to_reso(args.N_voxel_init, self.aabb)
         self.nSamples = min(args.nSamples, cal_n_samples(self.reso_cur, args.step_ratio))
         self.palette_prior, self.plt_bds_convhull_vtx = self.build_palette(args.palette_path)
@@ -125,10 +126,14 @@ class Trainer:
             palette = self.palette_prior
 
             tensorf = MODEL_ZOO[args.model_name](
+                #盒子大小  体素大小
                 self.aabb, self.reso_cur, self.device,
+                #R个数  Rc数量
                 density_n_comp=n_lamb_sigma, appearance_n_comp=n_lamb_sh,
+                #颜色维数大小
                 app_dim=args.data_dim_color, near_far=near_far,
                 shadingMode=args.shadingMode, alphaMask_thres=args.alpha_mask_thre,
+
                 density_shift=args.density_shift, distance_scale=args.distance_scale,
                 pos_pe=args.pos_pe, view_pe=args.view_pe, fea_pe=args.fea_pe,
                 featureC=args.featureC, step_ratio=args.step_ratio, fea2denseAct=args.fea2denseAct,

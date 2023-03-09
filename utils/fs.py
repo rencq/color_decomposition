@@ -6,7 +6,7 @@ from utils.opt import compare_args
 def setup_wd(parser, args):
     # Create log dir and copy the config file
     run_dir = os.path.join(args.basedir, args.expname)  #输出l
-    ckpt_dir = os.path.join(run_dir, 'checkpoints_0001')
+    ckpt_dir = os.path.join(run_dir, 'checkpoints')
     tb_dir = os.path.join(run_dir, 'tensorboard')
     print("+++++++++++++++++++")
     print(tb_dir)

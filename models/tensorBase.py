@@ -177,8 +177,9 @@ class TensorBase(torch.nn.Module):
         self.step_ratio = step_ratio
 
         self.update_stepSize(gridSize)
-
+        #矩阵取的维度
         self.matMode = [[0, 1], [0, 2], [1, 2]]
+        #向量取得维度
         self.vecMode = [2, 1, 0]
         self.comp_w = [1, 1, 1]
 
@@ -223,6 +224,7 @@ class TensorBase(torch.nn.Module):
         self.units = self.aabbSize / (self.gridSize - 1)
         self.stepSize = torch.mean(self.units) * self.step_ratio
         self.aabbDiag = torch.sqrt(torch.sum(torch.square(self.aabbSize)))
+        #对角线 除以 步长
         self.nSamples = int((self.aabbDiag / self.stepSize).item()) + 1
         print("[update_stepSize] sampling step size: ", self.stepSize)
         print("[update_stepSize] sampling number: ", self.nSamples)
@@ -286,12 +288,12 @@ class TensorBase(torch.nn.Module):
 
     def sample_ray_ndc(self, rays_o, rays_d, is_train=True, N_samples=-1):
         N_samples = N_samples if N_samples > 0 else self.nSamples
-        near, far = self.near_far
-        interpx = torch.linspace(near, far, N_samples).unsqueeze(0).to(rays_o)
+        near, far = self.near_far # 0 1
+        interpx = torch.linspace(near, far, N_samples).unsqueeze(0).to(rays_o)  # 1 / nsample e.g.(0,0.002,0.004,0.006 , ...)
         if is_train:
             interpx += torch.rand_like(interpx).to(rays_o) * ((far - near) / N_samples)
 
-        rays_pts = rays_o[..., None, :] + rays_d[..., None, :] * interpx[..., None]
+        rays_pts = rays_o[..., None, :] + rays_d[..., None, :] * interpx[..., None] #0d -> 1d
         mask_outbbox = ((self.aabb[0] > rays_pts) | (rays_pts > self.aabb[1])).any(dim=-1)
         return rays_pts, interpx, ~mask_outbbox
 
@@ -416,7 +418,9 @@ class TensorBase(torch.nn.Module):
 
         if alpha_mask.any():
             xyz_sampled = self.normalize_coord(xyz_locs[alpha_mask])
+            #计算theta特征
             sigma_feature = self.compute_densityfeature(xyz_sampled)
+            #激活函数
             validsigma = self.feature2density(sigma_feature)
             sigma[alpha_mask] = validsigma
 
@@ -431,23 +435,24 @@ class TensorBase(torch.nn.Module):
 
         # sample points
         viewdirs = rays_chunk[:, 3:6]  #(bs,3)
-        if ndc_ray:
+        if ndc_ray: #ndc  depth [0,1]
             xyz_sampled, z_vals, ray_valid = self.sample_ray_ndc(rays_chunk[:, :3], viewdirs, is_train=is_train,
                                                                  N_samples=N_samples)
             dists = torch.cat((z_vals[:, 1:] - z_vals[:, :-1], torch.zeros_like(z_vals[:, :1])), dim=-1)
             rays_norm = torch.norm(viewdirs, dim=-1, keepdim=True)
             dists = dists * rays_norm
             viewdirs = viewdirs / rays_norm
-        else:
+        else:   #不是ndc
             xyz_sampled, z_vals, ray_valid = self.sample_ray(rays_chunk[:, :3], viewdirs, is_train=is_train,
                                                              N_samples=N_samples)
+            #两个点之间距离
             dists = torch.cat((z_vals[:, 1:] - z_vals[:, :-1], torch.zeros_like(z_vals[:, :1])), dim=-1)
         viewdirs = viewdirs.view(-1, 1, 3).expand(xyz_sampled.shape)
 
         if self.alphaMask is not None:
             alphas = self.alphaMask.sample_alpha(xyz_sampled[ray_valid])
             alpha_mask = alphas > 0
-            ray_invalid = ~ray_valid  # (bs,443)  trur false composition
+            ray_invalid = ~ray_valid  # (bs,443)  true false composition
             ray_invalid[ray_valid] |= (~alpha_mask)
             ray_valid = ~ray_invalid
 
@@ -456,6 +461,7 @@ class TensorBase(torch.nn.Module):
         render_buf = torch.zeros((*xyz_sampled.shape[:2], self.n_dim), device=xyz_sampled.device)
 
         if ray_valid.any():
+            #计算theta
             xyz_sampled = self.normalize_coord(xyz_sampled)
             sigma_feature = self.compute_densityfeature(xyz_sampled[ray_valid])
 
