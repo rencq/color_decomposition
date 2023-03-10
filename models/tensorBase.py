@@ -162,8 +162,8 @@ class TensorBase(torch.nn.Module):
 
         self.density_n_comp = density_n_comp
         self.app_n_comp = appearance_n_comp
-        self.app_dim = app_dim
-        self.aabb = aabb  #rays
+        self.app_dim = app_dim  #表面特征维度
+        self.aabb = aabb  #盒子大小
         self.alphaMask = alphaMask
         self.device = device
 
@@ -299,7 +299,7 @@ class TensorBase(torch.nn.Module):
 
     def sample_ray(self, rays_o, rays_d, is_train=True, N_samples=-1):
         N_samples = N_samples if N_samples > 0 else self.nSamples
-        stepsize = self.stepSize
+        stepsize = self.stepSize  # 步长 默认体素一半 长度
         near, far = self.near_far  # 远近采样
         vec = torch.where(rays_d == 0, torch.full_like(rays_d, 1e-6), rays_d)
         # t length
@@ -311,11 +311,13 @@ class TensorBase(torch.nn.Module):
         rng = torch.arange(N_samples)[None].float()
         if is_train:
             rng = rng.repeat(rays_d.shape[-2], 1)
-            rng += torch.rand_like(rng[:, [0]])
+            rng += torch.rand_like(rng[:, [0]])  # （bs, nsample） e.g. (0,1,2,3,4,...)
+
         step = stepsize * rng.to(rays_o.device)
         interpx = (t_min[..., None] + step)
 
         rays_pts = rays_o[..., None, :] + rays_d[..., None, :] * interpx[..., None]
+        #超出盒子范围
         mask_outbbox = ((self.aabb[0] > rays_pts) | (rays_pts > self.aabb[1])).any(dim=-1)
 
         return rays_pts, interpx, ~mask_outbbox
@@ -341,6 +343,7 @@ class TensorBase(torch.nn.Module):
             alpha[i] = self.compute_alpha(dense_xyz[i].view(-1, 3), self.stepSize).view((gridSize[1], gridSize[2]))
         return alpha, dense_xyz
 
+    #掩码操作，清除sigma比较低的点
     @torch.no_grad()
     def updateAlphaMask(self, gridSize=(200, 200, 200)):
 
@@ -465,6 +468,7 @@ class TensorBase(torch.nn.Module):
             xyz_sampled = self.normalize_coord(xyz_sampled)
             sigma_feature = self.compute_densityfeature(xyz_sampled[ray_valid])
 
+            #激活函数
             validsigma = self.feature2density(sigma_feature)
             sigma[ray_valid] = validsigma
         #一个ray上的采样点 占的权重

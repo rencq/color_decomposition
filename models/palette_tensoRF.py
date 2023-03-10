@@ -21,7 +21,7 @@ class PLTRender(torch.nn.Module):
 
         len_palette = len(palette)
 
-        self.in_mlpC = 2 * viewpe * 3 + 2 * feape * inChanel + 3 + inChanel
+        self.in_mlpC = 2 * viewpe * 3 + 2 * feape * inChanel + 3 + inChanel #inchanel 表面特征维度 默认27  + 方向3
         self.viewpe = viewpe
         self.feape = feape
         self.n_dim = 3 + len_palette
@@ -128,7 +128,7 @@ class PLTRender(torch.nn.Module):
             rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)
         else:
             rgb = bary_coord @ palette  # operator overload
-
+        #稀疏度
         sparsity_weight = sparsity_weight.unsqueeze(0)
         sparsity = torch.sum(sparsity_weight * soft_L0_norm(bary_coord, scale=self.soft_l0_sharpness), dim=-1, keepdim=True)
         
@@ -154,7 +154,7 @@ class PaletteTensorVM(TensorVMSplit):
         else:
             raise NotImplementedError
 
-
+        #app_dim 表面特征维度 默认27
         return PLTRender(self.app_dim, view_pe, fea_pe, featureC, alpha_blend, palette, learn_palette, palette_init, soft_l0_sharpness,**kwargs).to(self.device)
     
     def get_palette_array(self):

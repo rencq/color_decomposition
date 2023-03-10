@@ -87,7 +87,7 @@ def write_pointcloud(dataset_type='train',):
 
     print("==============*****************==================")
     write_point_cloud_with_color_decomposition(dataset, model, args, trainer.renderer,eps=0.2, savePath=None, N_vis=2, N_samples=-1, white_bg=False,
-               ndc_ray=False, palette=palette, new_palette=None,device='cuda',filename=None)
+               ndc_ray=True, palette=palette, new_palette=None,device='cuda',filename=None)
 
 
 #%%

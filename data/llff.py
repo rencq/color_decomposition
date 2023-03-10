@@ -144,7 +144,7 @@ class LLFFDataset(Dataset):
         # ndc self.near_far = [0,1]
         else:
             self.near_far = [0.0, 1.0]
-        self.scene_bbox = torch.tensor([[-1.5, -1.67, -1.0], [1.5, 1.67, 1.0]])
+        self.scene_bbox = torch.tensor([[-15., -16.7, -15.], [15, 16.7, 15.]])
         # self.scene_bbox = torch.tensor([[-1.67, -1.5, -1.0], [1.67, 1.5, 1.0]])
         self.center = torch.mean(self.scene_bbox, dim=0).float().view(1, 1, 3)
         self.invradius = 1.0 / (self.scene_bbox[1] - self.center).float().view(1, 1, 3)
@@ -211,6 +211,7 @@ class LLFFDataset(Dataset):
         # use first N_images-1 to train, the LAST is val
         self.all_rays = []
         self.all_rgbs = []
+        self.all_rays_original=[]
         for i in img_list:
             image_path = self.image_paths[i]
             c2w = torch.FloatTensor(self.poses[i])
@@ -225,18 +226,23 @@ class LLFFDataset(Dataset):
             self.all_rgbs += [img]
             rays_o, rays_d = get_rays(self.directions, c2w)  # both (h*w, 3)
             if not self.spheric_poses:
+                rays_o_original, rays_d_original = rays_o.clone(),rays_d.clone()
                 rays_o, rays_d = ndc_rays_blender(H, W, self.focal[0], 1.0, rays_o, rays_d)
+                # 用来反投影距离
+                self.all_rays_original +=[torch.cat([rays_o_original,rays_d_original],1)]
             # viewdir = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
-
             self.all_rays += [torch.cat([rays_o, rays_d], 1)]  # (h*w, 6)
 
         if not self.is_stack:
             self.all_rays = torch.cat(self.all_rays, 0) # (len(self.meta['frames])*h*w, 3)
             self.all_rgbs = torch.cat(self.all_rgbs, 0) # (len(self.meta['frames])*h*w,3)
+            if not self.spheric_poses:
+                self.all_rays_original = torch.cat(self.all_rays_original,0)
         else:
             self.all_rays = torch.stack(self.all_rays, 0)   # (len(self.meta['frames]),h,w, 3)
             self.all_rgbs = torch.stack(self.all_rgbs, 0).reshape(-1,* self.img_wh[::-1], 3)  # (len(self.meta['frames]),h,w,3)
-
+            if not self.spheric_poses:
+                self.all_rays_original = torch.stack(self.all_rays_original,0)
 
     def define_transforms(self):
         self.transform = T.ToTensor()

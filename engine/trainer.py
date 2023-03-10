@@ -69,8 +69,8 @@ class Trainer:
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]  #blenderDataset
-        self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
-        self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+        self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,spheric_poses=True)
+        self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,spheric_poses=True)
 
         # init parameters
         self.aabb = self.train_dataset.scene_bbox.to(self.device) #init [[-1.5,-1.5,-1.5],[1.5,1.5,1.5]]
