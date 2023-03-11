@@ -144,7 +144,10 @@ class LLFFDataset(Dataset):
         # ndc self.near_far = [0,1]
         else:
             self.near_far = [0.0, 1.0]
-        self.scene_bbox = torch.tensor([[-15., -16.7, -15.], [15, 16.7, 15.]])
+        if self.spheric_poses:
+            self.scene_bbox = torch.tensor([[-15., -16.7, -15.], [15, 16.7, 15.]])
+        else:
+            self.scene_bbox = torch.tensor([[-1.5,-1.67,-1.5],[1.5,1.67,1.5]])
         # self.scene_bbox = torch.tensor([[-1.67, -1.5, -1.0], [1.67, 1.5, 1.0]])
         self.center = torch.mean(self.scene_bbox, dim=0).float().view(1, 1, 3)
         self.invradius = 1.0 / (self.scene_bbox[1] - self.center).float().view(1, 1, 3)

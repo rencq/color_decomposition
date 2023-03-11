@@ -69,8 +69,8 @@ class Trainer:
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]  #blenderDataset
-        self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,spheric_poses=True)
-        self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,spheric_poses=True)
+        self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
+        self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
 
         # init parameters
         self.aabb = self.train_dataset.scene_bbox.to(self.device) #init [[-1.5,-1.5,-1.5],[1.5,1.5,1.5]]
@@ -332,7 +332,7 @@ class Trainer:
             loss_dict['opq_sps_loss'] = loss_opq_sps.clone().detach().item()
         if self.Plt_color_weight > 0 and 'opaque' in res:
             opaque_map = res['opaque']
-            loss_color_weight = self.color_weight(opaque_map,self.Plt_color_weight)
+            loss_color_weight = torch.mean(self.color_weight(opaque_map,self.Plt_color_weight))
             total_loss = total_loss + loss_color_weight
             loss_dict['color'] = loss_color_weight.clone().detach().item()
 

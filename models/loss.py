@@ -15,6 +15,21 @@ class color_weight(nn.Module):
         loss = torch.sum(torch.exp(x[...,:](1-x[...,:]))-1,dim=-1)
         return loss * gama
 
+class bilateralFilter(nn.Module):
+    def __init__(self,sigma_x,sigma_c):
+        super(bilateralFilter,self).__init__()
+        self.sigma_x = sigma_x
+        self.sigma_c = sigma_c
+
+    def forward(self,x,y,cx,cy,bx,by):
+        bsum = torch.sum
+        detas = (torch.reshape(x,(-1,1,3))-torch.reshape(y,(y.shape[0],-1,3)))**2/self.sigma_x
+        detac = ((torch.reshape(cx,(-1,1,3))-torch.reshape(cy,(cy.shape[0],-1,3)))**2/self.sigma_c)
+        theta = torch.sum(torch.exp(-detas-detac),dim=-1)
+
+
+
+
 class TVLoss(nn.Module):
     def __init__(self, TVLoss_weight=1):
         super(TVLoss, self).__init__()

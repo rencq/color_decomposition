@@ -119,7 +119,7 @@ print_divider()
 
 # Setup trainer
 print('Initializing trainer and model...')
-ckpt_dir = os.path.join(run_dir, 'checkpoints_0001')
+ckpt_dir = os.path.join(run_dir, 'checkpoints_sprsity_0001')
 tb_dir = os.path.join(run_dir, 'tensorboard')
 # 训练器
 trainer = Trainer(args, run_dir, ckpt_dir, tb_dir)
@@ -204,7 +204,7 @@ def render_one(palette,new_palette,is_choose=False,net1=None,net2=None):
 # Run the cells below to save this editing
 
 '''Modify this to name this editing'''
-edit_name = 'test_fern5'
+edit_name = 'test_fern7'
 def save_palette(new_palette):
 
     assert edit_name
@@ -255,7 +255,7 @@ read color
 # palette_prior = np.load('palette_rgb_11.npy')
 """ color edit"""
 palette = model.renderModule.palette.get_palette_array().detach()
-palette[...,0,:] = torch.tensor([1.,0.,0.])
+palette[...,5,:] = torch.tensor([1.,0.,0.])
 
 # palette = model.renderModule.palette.get_palette_array().detach()
 # palette = palette.clip(0. ,1.)
