@@ -6,6 +6,7 @@ from models import MODEL_ZOO
 
 def config_parser():
     parser = configargparse.ArgumentParser()
+
     parser.add_argument('--config', is_config_file=True, help='config file path')
     parser.add_argument("--expname", type=str, help='experiment name')
     parser.add_argument("--basedir", type=str, default='./log', help='directory to store ckpts and logs')
@@ -90,6 +91,7 @@ def config_parser():
     parser.add_argument('--learn_palette', action='store_true', help='learnable palette')
     parser.add_argument('--palette_init', type=str, default='userinput', help='initialization of palette')
 
+    parser.add_argument('--spheric_poses',type=bool,default=False,help="spheric_poses")
     return parser
 
 

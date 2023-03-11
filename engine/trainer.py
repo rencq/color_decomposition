@@ -69,14 +69,14 @@ class Trainer:
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]  #blenderDataset
-        self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
-        self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+        self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,spheric_poses=self.args.spheric_poses)
+        self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,spheric_poses=self.args.spheric_poses)
 
         # init parameters
         self.aabb = self.train_dataset.scene_bbox.to(self.device) #init [[-1.5,-1.5,-1.5],[1.5,1.5,1.5]]
         #计算体素个数
         self.reso_cur = N_to_reso(args.N_voxel_init, self.aabb)
-        self.nSamples = min(args.nSamples, cal_n_samples(self.reso_cur, args.step_ratio))
+        self.nSamples = min(args.nSamples, cal_n_samples(self.reso_cur, args.step_ratio))  #体素个数二范数/0.5
         self.palette_prior, self.plt_bds_convhull_vtx = self.build_palette(args.palette_path)
         
         np.save(os.path.join(run_dir, 'palette_prior.npy'), self.palette_prior.numpy())
