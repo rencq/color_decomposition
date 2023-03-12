@@ -29,7 +29,7 @@ def chunkify_render(rays, tensorf, chunk=4096, N_samples=-1, ndc_ray=False, whit
         rays_chunk = rays[chunk_idx * chunk:(chunk_idx + 1) * chunk].to(device)
 
         res_dict = tensorf(rays_chunk, is_train=is_train, white_bg=white_bg, ndc_ray=ndc_ray, N_samples=N_samples, **kwargs)
-
+        # loss = tensorf.loss
         for k in res_dict:
             if not k in ret:
                 ret[k] = []

@@ -450,7 +450,7 @@ class TensorBase(torch.nn.Module):
                                                              N_samples=N_samples)
             #两个点之间距离
             dists = torch.cat((z_vals[:, 1:] - z_vals[:, :-1], torch.zeros_like(z_vals[:, :1])), dim=-1)
-        viewdirs = viewdirs.view(-1, 1, 3).expand(xyz_sampled.shape)
+        viewdirs = viewdirs.view(-1, 1, 3).expand(xyz_sampled.shape)  #(bs,nsample,3)
 
         if self.alphaMask is not None:
             alphas = self.alphaMask.sample_alpha(xyz_sampled[ray_valid])
@@ -466,26 +466,29 @@ class TensorBase(torch.nn.Module):
         if ray_valid.any():
             #计算theta
             xyz_sampled = self.normalize_coord(xyz_sampled)
-            sigma_feature = self.compute_densityfeature(xyz_sampled[ray_valid])
+            sigma_feature = self.compute_densityfeature(xyz_sampled[ray_valid]) #(bs * nsample,)
 
             #激活函数
             validsigma = self.feature2density(sigma_feature)
-            sigma[ray_valid] = validsigma
+            sigma[ray_valid] = validsigma    #(bs,nsample)
         #一个ray上的采样点 占的权重
         alpha, weight, bg_weight = raw2alpha(sigma, dists * self.distance_scale)
 
         #choose sample point
-        app_mask = weight > self.rayMarch_weight_thres
+        app_mask = weight > self.rayMarch_weight_thres  #(bs,nsample)
 
         if app_mask.any():
-            app_features = self.compute_appfeature(xyz_sampled[app_mask])
+            app_features = self.compute_appfeature(xyz_sampled[app_mask])  #(bs*nsample,27)
             # link PLT_blend
             valid_render_bufs = self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)
             render_buf[app_mask] = valid_render_bufs.type(torch.float32)
 
+        """滤波loss"""
+        # self.loss = self.get_color_and_sigma_and_alpha(xyz_sampled[app_mask], viewdirs[app_mask])
+
         ret = {}
 
-        rend_dict = split_render_buffer(render_buf, self.render_buf_layout)
+        rend_dict = split_render_buffer(render_buf, self.render_buf_layout) # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
 
         acc_map = torch.sum(weight, -1)
         # rgb_map = torch.sum(weight[..., None] * rend_dict['rgb'], -2)
@@ -523,3 +526,21 @@ class TensorBase(torch.nn.Module):
 
         return ret
 
+    def get_color_and_sigma_and_alpha(self,xyz_sample,viewdir):
+        xyz_sampled = torch.reshape(xyz_sample,(-1,1,3))
+        viewdir = torch.reshape(viewdir,(-1,1,3))
+
+        deta_xyz = xyz_sample + torch.normal(0,0.1,(1,10,3))  #（n,10,3）
+
+        sigma_feature = self.compute_densityfeature(xyz_sampled)  # bs,nsample
+
+        # 激活函数  得到sigma
+        validsigma = self.feature2density(sigma_feature) # bs,nsample
+
+        app_features = self.compute_appfeature(xyz_sampled)
+        #获得 color 和 opaque
+        render_bufs = self.renderModule(xyz_sampled, viewdir, app_features, is_train=False)
+        rend_dict = split_render_buffer(render_bufs, self.render_buf_layout)
+
+        # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
+        return [rend_dict['rgb'],validsigma,rend_dict['opaque']]

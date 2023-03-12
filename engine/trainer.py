@@ -80,7 +80,6 @@ class Trainer:
         self.palette_prior, self.plt_bds_convhull_vtx = self.build_palette(args.palette_path)
         
         np.save(os.path.join(run_dir, 'palette_prior.npy'), self.palette_prior.numpy())
-
         print("[trainer init] aabb", self.aabb.tolist())
         print("[trainer init] num of render samples", self.nSamples)
         print("[trainer init] palette shape", self.palette_prior.shape)

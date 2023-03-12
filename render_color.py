@@ -116,11 +116,16 @@ if os.path.exists(config_path):
 else:
     print(f'ERROR: cannot read args in {run_dir}.')
 print_divider()
-
+"""
+修改参数
+"""
 # Setup trainer
 print('Initializing trainer and model...')
-ckpt_dir = os.path.join(run_dir, 'checkpoints_sprsity_0001')
+ckpt_dir = os.path.join(run_dir, 'checkpoints')
 tb_dir = os.path.join(run_dir, 'tensorboard')
+
+'''Modify this to name this editing'''
+edit_name = 'test_fern12_6_color_weight_02'
 # 训练器
 trainer = Trainer(args, run_dir, ckpt_dir, tb_dir)
 # 模型
@@ -203,8 +208,7 @@ def render_one(palette,new_palette,is_choose=False,net1=None,net2=None):
 
 # Run the cells below to save this editing
 
-'''Modify this to name this editing'''
-edit_name = 'test_fern7'
+
 def save_palette(new_palette):
 
     assert edit_name
@@ -294,4 +298,5 @@ palette[...,5,:] = torch.tensor([1.,0.,0.])
 # new_palette[0][3:6] = torch.tensor([1.,0.,0.],dtype=torch.float64)
 # print("=======> changed new palette")
 # print(new_palette)
+# print(palette.cpu())
 save(palette.cpu(),new_palette=None,N_samples=args.nSamples)

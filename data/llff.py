@@ -178,6 +178,7 @@ class LLFFDataset(Dataset):
         # Original poses has rotation in form "down right back", change to "right up back"
         # See https://github.com/bmild/nerf/issues/34
         poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
+        # poses = np.concatenate([poses[...,0:4]],axis = -1)
         # (N_images, 3, 4) exclude H, W, focal
         self.poses, self.pose_avg = center_poses(poses, self.blender2opencv)
 

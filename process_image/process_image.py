@@ -11,6 +11,7 @@ llffdataset = LLFFDataset(filedir,downsample=4,spheric_poses=True)
 for i in range(llffdataset.poses.shape[0]):
     outpath_pose = os.path.join(outdir,f"IMG_{8361+i}.txt")
     tmp = np.array([[0.,0.,0.,1.]])
+    poses = np.concatenate([llffdataset.poses[..., 1:2], llffdataset.poses[..., :1], -llffdataset.poses[..., 2:3],llffdataset.posesses[...,3]], -1)
     pose_tmp = np.concatenate((llffdataset.poses[i,...],tmp),axis=0)
     np.savetxt(outpath_pose,pose_tmp,header='extrinsic',comments='')
 for i in range(llffdataset.poses.shape[0]):

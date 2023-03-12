@@ -7,6 +7,7 @@ from scipy.spatial import ConvexHull, Delaunay
 from operator import itemgetter
 from utils.palette_utils.Additive_mixing_layers_extraction import DCPPointTriangle
 
+
 class color_weight(nn.Module):
     def __init__(self):
         super(color_weight, self).__init__()
@@ -16,16 +17,21 @@ class color_weight(nn.Module):
         return loss * gama
 
 class bilateralFilter(nn.Module):
-    def __init__(self,sigma_x,sigma_c):
+    def __init__(self,sigma_x,sigma_c,sigma_s):
         super(bilateralFilter,self).__init__()
         self.sigma_x = sigma_x
         self.sigma_c = sigma_c
+        self.sigma_s = sigma_s
 
-    def forward(self,x,y,cx,cy,bx,by):
-        bsum = torch.sum
-        detas = (torch.reshape(x,(-1,1,3))-torch.reshape(y,(y.shape[0],-1,3)))**2/self.sigma_x
-        detac = ((torch.reshape(cx,(-1,1,3))-torch.reshape(cy,(cy.shape[0],-1,3)))**2/self.sigma_c)
-        theta = torch.sum(torch.exp(-detas-detac),dim=-1)
+    def forward(self,x,y,cx,cy,sigmax,sigmay,Alpha_x,Alpha_y):
+        detasigma = torch.sum((torch.reshape(sigmax,(-1,1,1))-torch.reshape(sigmay,(sigmay.shape[0],-1,1)))**2/self.sigma_s,dim=-1)
+        detas = torch.sum((torch.reshape(x,(-1,1,3))-torch.reshape(y,(y.shape[0],-1,3)))**2/self.sigma_x,dim=-1)
+        detac = torch.sum((torch.reshape(cx,(-1,1,3))-torch.reshape(cy,(cy.shape[0],-1,3)))**2/self.sigma_c,dim=-1)
+        deta_alpha = torch.sum((torch.reshape(Alpha_x,(-1,1,5))-torch.reshape(Alpha_y,(Alpha_y.shape[0],-1,5)))**2,dim=-1)
+
+        return torch.mean(torch.sum(torch.exp(-detas-detac-detasigma)*deta_alpha,dim=-1),dim=-1)
+
+
 
 
 
