@@ -14,7 +14,7 @@ from tqdm import trange, tqdm
 
 from data import dataset_dict
 from models import MODEL_ZOO
-from models.loss import TVLoss, PaletteBoundLoss,color_weight
+from models.loss import TVLoss, PaletteBoundLoss,color_weight,bilateralFilter
 from engine.eval import evaluation, evaluation_path
 from utils.recon import convert_sdf_samples_to_ply
 from utils.render import chunkify_render, N_to_reso, cal_n_samples
@@ -157,7 +157,13 @@ class Trainer:
         self.tvreg = TVLoss()
         self.plt_bd_reg = PaletteBoundLoss(self.plt_bds_convhull_vtx)
         self.color_weight = color_weight()
+        self.Plt_loss_sigma_x=args.Plt_loss_sigma_x
+        self.Plt_loss_sigma_c=args.Plt_loss_sigma_c
+        self.Plt_loss_sigma_s=args.Plt_loss_sigma_s
+        self.Plt_bilaterFilter=args.Plt_bilaterFilter
+        if self.Plt_loss_sigma_x > 0 and self.Plt_loss_sigma_c > 0 and self.Plt_loss_sigma_s>0 and self.Plt_bilaterFilter >0:
 
+            self.bilateralFilter = bilateralFilter(self.Plt_loss_sigma_x,self.Plt_loss_sigma_c,self.Plt_loss_sigma_s)
         self.Ortho_reg_weight = args.Ortho_weight
         print("[trainer train] initial Ortho_reg_weight", self.Ortho_reg_weight)
         self.L1_reg_weight = args.L1_weight_inital
@@ -334,6 +340,13 @@ class Trainer:
             loss_color_weight = torch.mean(self.color_weight(opaque_map,self.Plt_color_weight))
             total_loss = total_loss + loss_color_weight
             loss_dict['color'] = loss_color_weight.clone().detach().item()
+
+        if self.Plt_loss_sigma_x > 0 and self.Plt_loss_sigma_c > 0 and self.Plt_loss_sigma_s>0 and self.Plt_bilaterFilter>0:
+            loss_Plt_bilateralFilter = tensorf.loss
+            loss_bilateralFilter = self.bilateralFilter(loss_Plt_bilateralFilter[0],loss_Plt_bilateralFilter[1],loss_Plt_bilateralFilter[2],loss_Plt_bilateralFilter[3],
+                                                        loss_Plt_bilateralFilter[4],loss_Plt_bilateralFilter[5],loss_Plt_bilateralFilter[6],loss_Plt_bilateralFilter[7])
+            total_loss = total_loss + loss_Plt_bilateralFilter * self.Plt_bilaterFilter
+            loss_dict['loss_bilateralFilter'] = loss_bilateralFilter.clone().detach().item()
 
         loss_dict['total_loss'] = total_loss.clone().detach().item()
 

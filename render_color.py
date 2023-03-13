@@ -121,11 +121,11 @@ print_divider()
 """
 # Setup trainer
 print('Initializing trainer and model...')
-ckpt_dir = os.path.join(run_dir, 'checkpoints')
+ckpt_dir = os.path.join(run_dir, 'checkpoints_original_0001')
 tb_dir = os.path.join(run_dir, 'tensorboard')
 
 '''Modify this to name this editing'''
-edit_name = 'test_fern12_6_color_weight_02'
+edit_name = 'test_fern_5_original'
 # 训练器
 trainer = Trainer(args, run_dir, ckpt_dir, tb_dir)
 # 模型
@@ -259,7 +259,7 @@ read color
 # palette_prior = np.load('palette_rgb_11.npy')
 """ color edit"""
 palette = model.renderModule.palette.get_palette_array().detach()
-palette[...,5,:] = torch.tensor([1.,0.,0.])
+palette[...,0,:] = torch.tensor([1.,0.,0.])
 
 # palette = model.renderModule.palette.get_palette_array().detach()
 # palette = palette.clip(0. ,1.)

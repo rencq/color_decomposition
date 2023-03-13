@@ -24,10 +24,10 @@ class bilateralFilter(nn.Module):
         self.sigma_s = sigma_s
 
     def forward(self,x,y,cx,cy,sigmax,sigmay,Alpha_x,Alpha_y):
-        detasigma = torch.sum((torch.reshape(sigmax,(-1,1,1))-torch.reshape(sigmay,(sigmay.shape[0],-1,1)))**2/self.sigma_s,dim=-1)
-        detas = torch.sum((torch.reshape(x,(-1,1,3))-torch.reshape(y,(y.shape[0],-1,3)))**2/self.sigma_x,dim=-1)
-        detac = torch.sum((torch.reshape(cx,(-1,1,3))-torch.reshape(cy,(cy.shape[0],-1,3)))**2/self.sigma_c,dim=-1)
-        deta_alpha = torch.sum((torch.reshape(Alpha_x,(-1,1,5))-torch.reshape(Alpha_y,(Alpha_y.shape[0],-1,5)))**2,dim=-1)
+        detasigma = torch.sum((torch.reshape(sigmax,(-1,1,1))-torch.reshape(sigmay,(-1,10,1)))**2/self.sigma_s,dim=-1)
+        detas = torch.sum((torch.reshape(x,(-1,1,3))-torch.reshape(y,(-1,10,3)))**2/self.sigma_x,dim=-1)
+        detac = torch.sum((torch.reshape(cx,(-1,1,3))-torch.reshape(cy,(-1,10,3)))**2/self.sigma_c,dim=-1)
+        deta_alpha = torch.sum((torch.reshape(Alpha_x,(-1,1,Alpha_x.shape[-1]))-torch.reshape(Alpha_y,(-1,10,Alpha_y.shape[-1])))**2,dim=-1)
 
         return torch.mean(torch.sum(torch.exp(-detas-detac-detasigma)*deta_alpha,dim=-1),dim=-1)
 

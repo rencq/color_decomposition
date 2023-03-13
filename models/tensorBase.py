@@ -458,10 +458,10 @@ class TensorBase(torch.nn.Module):
             ray_invalid = ~ray_valid  # (bs,443)  true false composition
             ray_invalid[ray_valid] |= (~alpha_mask)
             ray_valid = ~ray_invalid
-
         sigma = torch.zeros(xyz_sampled.shape[:-1], device=xyz_sampled.device) #(bs,443)
         # render buffer for each point: [RGB, component opaque, ...]
         render_buf = torch.zeros((*xyz_sampled.shape[:2], self.n_dim), device=xyz_sampled.device)
+        #xyz_sampled (bs,sampled,3)
 
         if ray_valid.any():
             #计算theta
@@ -469,26 +469,28 @@ class TensorBase(torch.nn.Module):
             sigma_feature = self.compute_densityfeature(xyz_sampled[ray_valid]) #(bs * nsample,)
 
             #激活函数
-            validsigma = self.feature2density(sigma_feature)
+            validsigma = self.feature2density(sigma_feature) #(bs-,)
+            #盒子内的坐标
             sigma[ray_valid] = validsigma    #(bs,nsample)
+
         #一个ray上的采样点 占的权重
-        alpha, weight, bg_weight = raw2alpha(sigma, dists * self.distance_scale)
+        alpha, weight, bg_weight = raw2alpha(sigma, dists * self.distance_scale)#alpha (bs,nsample,1) weight (bs,nsample,1)
 
         #choose sample point
-        app_mask = weight > self.rayMarch_weight_thres  #(bs,nsample)
+        app_mask = weight > self.rayMarch_weight_thres  #(bs*nsample,)
 
         if app_mask.any():
-            app_features = self.compute_appfeature(xyz_sampled[app_mask])  #(bs*nsample,27)
+            app_features = self.compute_appfeature(xyz_sampled[app_mask])  #(bs*nsample-,27)
             # link PLT_blend
-            valid_render_bufs = self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)
+            valid_render_bufs = self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)  #(bs*nsample-,9)
             render_buf[app_mask] = valid_render_bufs.type(torch.float32)
 
-        """滤波loss"""
-        # self.loss = self.get_color_and_sigma_and_alpha(xyz_sampled[app_mask], viewdirs[app_mask])
 
         ret = {}
 
         rend_dict = split_render_buffer(render_buf, self.render_buf_layout) # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
+        """滤波loss"""
+        self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
 
         acc_map = torch.sum(weight, -1)
         # rgb_map = torch.sum(weight[..., None] * rend_dict['rgb'], -2)
@@ -526,21 +528,21 @@ class TensorBase(torch.nn.Module):
 
         return ret
 
-    def get_color_and_sigma_and_alpha(self,xyz_sample,viewdir):
-        xyz_sampled = torch.reshape(xyz_sample,(-1,1,3))
-        viewdir = torch.reshape(viewdir,(-1,1,3))
+    def get_color_and_sigma_and_alpha(self,app_mask,xyz_sample,viewdir,sigma_original,rend_dict_original):
+        xyz_sampled = torch.reshape(xyz_sample[app_mask],(-1,1,3)) #(bs*nsample-,1,3)
 
-        deta_xyz = xyz_sample + torch.normal(0,0.1,(1,10,3))  #（n,10,3）
+        deta_xyz = xyz_sampled + torch.normal(0,0.1,(1,10,3)).to(xyz_sample.device)  #（bs*nsample,10,3）
+        viewdir = torch.reshape(viewdir[app_mask],(-1,1,3)).expand(deta_xyz.shape[0],deta_xyz.shape[1],3) #(bs*nsample,10,3)
 
-        sigma_feature = self.compute_densityfeature(xyz_sampled)  # bs,nsample
+        sigma_feature = self.compute_densityfeature(torch.reshape(deta_xyz,(-1,3)))  # bs*nsample-,
 
         # 激活函数  得到sigma
-        validsigma = self.feature2density(sigma_feature) # bs,nsample
+        validsigma = self.feature2density(sigma_feature) # bs*nsample-,
 
-        app_features = self.compute_appfeature(xyz_sampled)
+        app_features = self.compute_appfeature(torch.reshape(deta_xyz,(-1,3)))
         #获得 color 和 opaque
-        render_bufs = self.renderModule(xyz_sampled, viewdir, app_features, is_train=False)
+        render_bufs = self.renderModule(torch.reshape(deta_xyz,(-1,3)), torch.reshape(viewdir,(-1,3)), app_features, is_train=False)
         rend_dict = split_render_buffer(render_bufs, self.render_buf_layout)
 
-        # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
-        return [rend_dict['rgb'],validsigma,rend_dict['opaque']]
+        # rgb (bs*nsample*10,3) opaque (bs*nsample*10,palette_num) sparsity_norm (bs,nsample,1)
+        return [xyz_sampled,deta_xyz,rend_dict_original['rgb'][app_mask],rend_dict['rgb'],sigma_original[app_mask],validsigma,rend_dict_original['opaque'][app_mask],rend_dict['opaque']]
