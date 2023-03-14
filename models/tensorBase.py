@@ -490,7 +490,7 @@ class TensorBase(torch.nn.Module):
 
         rend_dict = split_render_buffer(render_buf, self.render_buf_layout) # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
         """滤波loss"""
-        self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
+        # self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
 
         acc_map = torch.sum(weight, -1)
         # rgb_map = torch.sum(weight[..., None] * rend_dict['rgb'], -2)
