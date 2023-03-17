@@ -145,7 +145,7 @@ class LLFFDataset(Dataset):
         else:
             self.near_far = [0.0, 1.0]
         if self.spheric_poses:
-            self.scene_bbox = torch.tensor([[-15., -16.7, -15.], [15, 16.7, 15.]])
+            self.scene_bbox = torch.tensor([[-5., -5.7, -5.], [5., 5.7, 5.]])
         else:
             self.scene_bbox = torch.tensor([[-1.5,-1.67,-1.5],[1.5,1.67,1.5]])
         # self.scene_bbox = torch.tensor([[-1.67, -1.5, -1.0], [1.67, 1.5, 1.0]])
@@ -187,6 +187,7 @@ class LLFFDataset(Dataset):
             self.poses, self.pose_avg = center_poses(poses, self.blender2opencv)
         # Step 3: correct scale so that the nearest depth is at a little more than 1.0
         # See https://github.com/bmild/nerf/issues/34
+
         near_original = self.near_fars.min()
         scale_factor = near_original * 0.75  # 0.75 is the default parameter
         # the nearest depth is at 1/0.75=1.33

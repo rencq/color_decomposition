@@ -13,6 +13,7 @@ except:
 from tqdm import trange, tqdm
 
 from data import dataset_dict
+from data.read_depth import depth_dataset
 from models import MODEL_ZOO
 from models.loss import TVLoss, PaletteBoundLoss,color_weight,bilateralFilter
 from engine.eval import evaluation, evaluation_path
@@ -24,16 +25,21 @@ from utils.palette_utils.Additive_mixing_layers_extraction import DCPPointTriang
 
 
 class SimpleSampler:
-    def __init__(self, train_dataset, batch):
+    def __init__(self, train_dataset, depth_dataset,batch):
         self.all_rays = train_dataset.all_rays
         self.all_rgbs = train_dataset.all_rgbs
+        self.depth = depth_dataset.all_depth
+        self.final_mask = depth_dataset.final_mask
         self.total = self.all_rays.shape[0]
         self.curr = self.total
         self.ids = None
         self.batch = batch
 
-    def apply_filter(self, func, *args, **kwargs):
-        self.all_rays, self.all_rgbs = func(self.all_rays, self.all_rgbs, *args, **kwargs)
+    def apply_filter(self, func,is_depth, *args, **kwargs):
+        if is_depth:
+            self.all_rays, self.all_rgbs,self.final_mask = func(self.all_rays, self.all_rgbs,is_depth=is_depth, *args, **kwargs)
+        else:
+            self.all_rays, self.all_rgbs = func(self.all_rays, self.all_rgbs,is_depth=is_depth, *args, **kwargs)
         self.total = self.all_rays.shape[0]
         self.curr = self.total
         self.ids = None
@@ -47,7 +53,7 @@ class SimpleSampler:
 
     def getbatch(self, device):
         ids = self.nextids()
-        return self.all_rays[ids].to(device), self.all_rgbs[ids].to(device)
+        return self.all_rays[ids].to(device), self.all_rgbs[ids].to(device),self.depth[ids].to(device),self.final_mask[ids].to(device)
 
 
 class Trainer:
@@ -71,7 +77,8 @@ class Trainer:
         dataset = dataset_dict[args.dataset_name]  #blenderDataset
         self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,spheric_poses=self.args.spheric_poses)
         self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,spheric_poses=self.args.spheric_poses)
-
+        self.depth_train_dataset = depth_dataset(args.datadir,self.train_dataset.poses.shape[0],self.train_dataset.poses,
+                                                 split='train',downsample=args.downsample_train,is_stack=False)
         # init parameters
         self.aabb = self.train_dataset.scene_bbox.to(self.device) #init [[-1.5,-1.5,-1.5],[1.5,1.5,1.5]]
         #计算体素个数
@@ -198,7 +205,10 @@ class Trainer:
 
         # data sampler
         self.trainingSampler = SimpleSampler(self.train_dataset, args.batch_size)
+
+
         if not args.ndc_ray:
+            self.trainingSampler_depth.apply_filter()
             self.trainingSampler.apply_filter(tensorf.filtering_rays, bbox_only=True)
 
         # start training
