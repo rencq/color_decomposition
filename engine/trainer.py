@@ -343,6 +343,9 @@ class Trainer:
 
         if self.Plt_loss_sigma_x > 0 and self.Plt_loss_sigma_c > 0 and self.Plt_loss_sigma_s>0 and self.Plt_bilaterFilter>0:
             loss_Plt_bilateralFilter = tensorf.loss
+            # loss_bilateralFilter = self.bilateralFilter(loss_Plt_bilateralFilter[0], loss_Plt_bilateralFilter[1],
+            #                                             loss_Plt_bilateralFilter[2], loss_Plt_bilateralFilter[3],
+            #                                             loss_Plt_bilateralFilter[4], loss_Plt_bilateralFilter[5])
             loss_bilateralFilter = self.bilateralFilter(loss_Plt_bilateralFilter[0],loss_Plt_bilateralFilter[1],loss_Plt_bilateralFilter[2],loss_Plt_bilateralFilter[3],
                                                         loss_Plt_bilateralFilter[4],loss_Plt_bilateralFilter[5],loss_Plt_bilateralFilter[6],loss_Plt_bilateralFilter[7])
             total_loss = total_loss + loss_bilateralFilter * self.Plt_bilaterFilter

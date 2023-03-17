@@ -490,7 +490,7 @@ class TensorBase(torch.nn.Module):
 
         rend_dict = split_render_buffer(render_buf, self.render_buf_layout) # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
         """滤波loss"""
-        # self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
+        self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
 
         acc_map = torch.sum(weight, -1)
         # rgb_map = torch.sum(weight[..., None] * rend_dict['rgb'], -2)
@@ -528,21 +528,24 @@ class TensorBase(torch.nn.Module):
 
         return ret
 
-    def get_color_and_sigma_and_alpha(self,app_mask,xyz_sample,viewdir,sigma_original,rend_dict_original):
-        xyz_sampled = torch.reshape(xyz_sample[app_mask],(-1,1,3)) #(bs*nsample-,1,3)
+    def get_color_and_sigma_and_alpha(self, app_mask, xyz_sample, viewdir, sigma_original, rend_dict_original):
+        xyz_sampled = torch.reshape(xyz_sample[app_mask], (-1, 1, 3))  # (bs*nsample-,1,3)
 
-        deta_xyz = xyz_sampled + torch.normal(0,0.1,(1,10,3)).to(xyz_sample.device)  #（bs*nsample,10,3）
-        viewdir = torch.reshape(viewdir[app_mask],(-1,1,3)).expand(deta_xyz.shape[0],deta_xyz.shape[1],3) #(bs*nsample,10,3)
+        deta_xyz = xyz_sampled + torch.normal(0, 0.000001, (1, 10, 3)).to(xyz_sample.device)  # （bs*nsample,10,3）
+        viewdir = torch.reshape(viewdir[app_mask], (-1, 1, 3)).expand(deta_xyz.shape[0], deta_xyz.shape[1],
+                                                                      3)  # (bs*nsample,10,3)
 
-        sigma_feature = self.compute_densityfeature(torch.reshape(deta_xyz,(-1,3)))  # bs*nsample-,
+        sigma_feature = self.compute_densityfeature(torch.reshape(deta_xyz, (-1, 3)))  # bs*nsample-,
 
         # 激活函数  得到sigma
-        validsigma = self.feature2density(sigma_feature) # bs*nsample-,
+        validsigma = self.feature2density(sigma_feature)  # bs*nsample-,
 
-        app_features = self.compute_appfeature(torch.reshape(deta_xyz,(-1,3)))
-        #获得 color 和 opaque
-        render_bufs = self.renderModule(torch.reshape(deta_xyz,(-1,3)), torch.reshape(viewdir,(-1,3)), app_features, is_train=False)
+        app_features = self.compute_appfeature(torch.reshape(deta_xyz, (-1, 3)))
+        # 获得 color 和 opaque
+        render_bufs = self.renderModule(torch.reshape(deta_xyz, (-1, 3)), torch.reshape(viewdir, (-1, 3)), app_features,
+                                        is_train=False)
         rend_dict = split_render_buffer(render_bufs, self.render_buf_layout)
 
         # rgb (bs*nsample*10,3) opaque (bs*nsample*10,palette_num) sparsity_norm (bs,nsample,1)
-        return [xyz_sampled,deta_xyz,rend_dict_original['rgb'][app_mask],rend_dict['rgb'],sigma_original[app_mask],validsigma,rend_dict_original['opaque'][app_mask],rend_dict['opaque']]
+        return [xyz_sampled, deta_xyz, rend_dict_original['rgb'][app_mask], rend_dict['rgb'], sigma_original[app_mask],
+                validsigma, rend_dict_original['opaque'][app_mask], rend_dict['opaque']]
