@@ -180,8 +180,11 @@ class LLFFDataset(Dataset):
         poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
         # poses = np.concatenate([poses[...,0:4]],axis = -1)
         # (N_images, 3, 4) exclude H, W, focal
-        self.poses, self.pose_avg = center_poses(poses, self.blender2opencv)
 
+        if not self.spheric_poses:
+            self.poses, self.pose_avg = center_poses(poses, self.blender2opencv)
+        else:
+            self.poses, self.pose_avg = center_poses(poses, self.blender2opencv)
         # Step 3: correct scale so that the nearest depth is at a little more than 1.0
         # See https://github.com/bmild/nerf/issues/34
         near_original = self.near_fars.min()
@@ -206,7 +209,10 @@ class LLFFDataset(Dataset):
         W, H = self.img_wh
         self.directions = get_ray_directions_blender(H, W, self.focal)  # (H, W, 3)
 
-        average_pose = average_poses(self.poses)
+        if not self.spheric_poses:
+            average_pose = average_poses(self.poses)
+        else:
+            average_pose = average_poses(self.poses)
         dists = np.sum(np.square(average_pose[:3, 3] - self.poses[:, :3, 3]), -1)
         i_test = np.arange(0, self.poses.shape[0], self.hold_every)  # [np.argmin(dists)]
         #测试集 训练集分开

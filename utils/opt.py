@@ -53,6 +53,11 @@ def config_parser():
     parser.add_argument("--Plt_opaque_sps_weight", type=float, default=0.0, help='loss weight')
     parser.add_argument('--soft_l0_sharpness', type=float, default=24., help='sharpness of soft L0')
     parser.add_argument('--Plt_color_weight',type=float,default=0.01,help='color weight')
+    parser.add_argument('--Plt_loss_sigma_x', type=float, default=1.5, help='color weight')
+    parser.add_argument('--Plt_loss_sigma_c', type=float, default=0.5, help='color weight')
+    parser.add_argument('--Plt_loss_sigma_s', type=float, default=1.5, help='color weight')
+    parser.add_argument("--Plt_bilaterFilter",type=float,default=0.01)
+
     # tensorf model
     ## volume options
     parser.add_argument("--n_lamb_sigma", type=int, action="append")
