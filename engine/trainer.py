@@ -204,12 +204,11 @@ class Trainer:
         self.summary_writer = SummaryWriter(log_dir=self.tb_dir)
 
         # data sampler
-        self.trainingSampler = SimpleSampler(self.train_dataset, args.batch_size)
+        self.trainingSampler = SimpleSampler(self.train_dataset,self.depth_train_dataset, args.batch_size)
 
 
         if not args.ndc_ray:
-            self.trainingSampler_depth.apply_filter()
-            self.trainingSampler.apply_filter(tensorf.filtering_rays, bbox_only=True)
+            self.trainingSampler.apply_filter(tensorf.filtering_rays,is_depth=True, bbox_only=True)
 
         # start training
         print(f'=== training ======> {args.expname}')
@@ -289,7 +288,7 @@ class Trainer:
         np.save('palette_rgb_11.npy',tensorf.get_palette_array().detach().cpu().numpy())
         print('save palette finished~+!!!!')
 
-    def train_one_batch(self, tensorf, iteration, rays_train, rgb_train):
+    def train_one_batch(self, tensorf, iteration, rays_train, rgb_train,depth,final_mask):
         args = self.args
         white_bg = self.train_dataset.white_bg
         ndc_ray = args.ndc_ray
@@ -311,7 +310,12 @@ class Trainer:
         if 'rgb0_map' in res:
             img_loss_0 = torch.mean((res['rgb0_map'] - rgb_train) ** 2)
             total_loss = total_loss + img_loss_0
-        
+
+        if 'depth' in res:
+            depth_train = rays_train[...,0:3] + rays_train[...,3:6] * res['depth']
+            depth_loss = torch.mean((depth_train[final_mask]-depth[final_mask]) ** 2)
+            total_loss = total_loss + depth_loss
+
         # Regularization
         if self.Ortho_reg_weight > 0:
             loss_reg_ortho = tensorf.vector_comp_diffs()

@@ -51,11 +51,11 @@ class depth_dataset(Dataset):
 
             filename2 = os.path.join(mask_path,"%08d_final.png"%(i))
             img = cv2.imread(filename2)
-            img_ar = np.array(img)
+            img_ar = np.array(img,dtype=np.float)
             img_ar = np.sum(img_ar,-1).reshape(-1,1)
 
-            self.final_mask +=[img_ar] #(h*w,3)
-            self.all_depth += [depth]  # (h*w, 1)
+            self.final_mask +=[torch.tensor(img_ar)] #(h*w,3)
+            self.all_depth += [torch.tensor(depth)]  # (h*w, 1)
 
         if not self.is_stack:
             self.all_depth = torch.cat(self.all_depth, 0)  # (len(self.meta['frames])*h*w, 1)
