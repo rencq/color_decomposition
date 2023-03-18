@@ -17,7 +17,7 @@ from matplotlib import pyplot as plt
 #%%
 from engine.trainer import Trainer
 from engine.eval import evaluation_path
-from processing_point.get_point_cloud import write_point_cloud,read_point_cloud,write_point_cloud_with_color_decomposition
+from processing_point.get_point_cloud import write_point_cloud,read_point_cloud,write_point_cloud_with_color_decomposition,write_opaque_with_color_decomposition
 from data import dataset_dict
 from utils.opt import config_parser
 
@@ -27,7 +27,7 @@ path_redirect = [
     ('palette_path', '../data_palette', './data_palette')
 ]
 #%%
-run_dir = './logs/fern'
+run_dir = './logs/fruit'
 ckpt_path = None
 out_dir = os.path.join(run_dir,'demo_out')
 #%%
@@ -53,12 +53,12 @@ def read_data(dataset_type='train'):
 
     dataset = dataset_dict[args.dataset_name]
     # train_dataset
-    train_dataset = dataset(args.datadir,split='train',downsample=args.downsample_train * 2.,is_stack=True)
     # test_dataset
-    test_dataset = dataset(args.datadir,split='test',downsample=args.downsample_test*2., is_stack=True)
     if dataset_type =='train':
+        train_dataset = dataset(args.datadir,split='train',downsample=args.downsample_train,is_stack=True)
         return args,train_dataset
     else:
+        test_dataset = dataset(args.datadir,split='test',downsample=args.downsample_test, is_stack=True)
         return args,test_dataset
 
 #%%
@@ -66,13 +66,13 @@ from processing_point.color_decomposition import color_decomposition
 
 
 
-def write_pointcloud(dataset_type='train',):
+def write_pointcloud(dataset_type='train',true_choice=[0]):
 
     #读取数据
     args,dataset = read_data(dataset_type=dataset_type,)
 
     print("Initializing trainer and model...")
-    ckpt_dir = os.path.join(run_dir,"checkpoints_1")
+    ckpt_dir = os.path.join(run_dir,"checkpoints")
     tb_dir = os.path.join(run_dir,"tensorboard")
 
     trainer = Trainer(args,run_dir,ckpt_dir, tb_dir)
@@ -86,13 +86,19 @@ def write_pointcloud(dataset_type='train',):
     palette = model.renderModule.palette.get_palette_array().detach()
 
     print("==============*****************==================")
-    write_point_cloud_with_color_decomposition(dataset, model, args, trainer.renderer,eps=0.2, savePath=None, N_vis=2, N_samples=-1, white_bg=False,
-               ndc_ray=True, palette=palette, new_palette=None,device='cuda',filename=None)
+    "write point cloud"
+    # write_point_cloud_with_color_decomposition(dataset, model, args, trainer.renderer,eps=0.2, savePath=None, N_vis=2, N_samples=-1, white_bg=False,
+    #            ndc_ray=False, palette=palette, new_palette=None,device='cuda',filename=None)
 
+    "write opaque true idx"
+    write_opaque_with_color_decomposition(dataset, model, args, true_choice=true_choice,renderer=trainer.renderer, eps=0.2, savePath=None, N_vis=2,
+                                               N_samples=-1, white_bg=False,
+                                               ndc_ray=False, palette=palette, new_palette=None, device='cuda',
+                                               filename=None)
 
 #%%
 #写点云
-write_pointcloud()
+write_pointcloud('train',[0])
 #%%
 
 #读点云
