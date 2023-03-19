@@ -218,7 +218,8 @@ class LLFFDataset(Dataset):
         i_test = np.arange(0, self.poses.shape[0], self.hold_every)  # [np.argmin(dists)]
         #测试集 训练集分开
         img_list = i_test if self.split != 'train' else list(set(np.arange(len(self.poses))) - set(i_test))
-
+        print("=============img_list==============")
+        print(img_list)
         # use first N_images-1 to train, the LAST is val
         self.all_rays = []
         self.all_rgbs = []
@@ -250,8 +251,8 @@ class LLFFDataset(Dataset):
             if not self.spheric_poses:
                 self.all_rays_original = torch.cat(self.all_rays_original,0)
         else:
-            self.all_rays = torch.stack(self.all_rays, 0)   # (len(self.meta['frames]),h,w, 3)
-            self.all_rgbs = torch.stack(self.all_rgbs, 0).reshape(-1,* self.img_wh[::-1], 3)  # (len(self.meta['frames]),h,w,3)
+            self.all_rays = torch.stack(self.all_rays, 0)   # (len(self.meta['frames]),h*w, 3)
+            self.all_rgbs = torch.stack(self.all_rgbs, 0).reshape(-1,* self.img_wh[::-1], 3)  # (len(self.meta['frames]),h*w,3)
             if not self.spheric_poses:
                 self.all_rays_original = torch.stack(self.all_rays_original,0)
 

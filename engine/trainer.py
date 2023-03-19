@@ -35,9 +35,9 @@ class SimpleSampler:
         self.ids = None
         self.batch = batch
 
-    def apply_filter(self, func,is_depth, *args, **kwargs):
+    def apply_filter(self, func,is_depth=True, *args, **kwargs):
         if is_depth:
-            self.all_rays, self.all_rgbs,self.final_mask = func(self.all_rays, self.all_rgbs,is_depth=is_depth, *args, **kwargs)
+            self.all_rays, self.all_rgbs,self.final_mask = func(self.all_rays, self.all_rgbs,is_depth=is_depth,final_mask=self.final_mask, *args, **kwargs)
         else:
             self.all_rays, self.all_rgbs = func(self.all_rays, self.all_rgbs,is_depth=is_depth, *args, **kwargs)
         self.total = self.all_rays.shape[0]
@@ -311,8 +311,8 @@ class Trainer:
             img_loss_0 = torch.mean((res['rgb0_map'] - rgb_train) ** 2)
             total_loss = total_loss + img_loss_0
 
-        if 'depth' in res:
-            depth_train = rays_train[...,0:3] + rays_train[...,3:6] * res['depth']
+        if 'depth_map' in res:
+            depth_train = rays_train[...,0:3] + rays_train[...,3:6] * torch.reshape(res['depth_map'],(-1,1))
             depth_loss = torch.mean((depth_train[final_mask]-depth[final_mask]) ** 2)
             total_loss = total_loss + depth_loss
 
