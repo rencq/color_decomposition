@@ -168,6 +168,7 @@ class Trainer:
         self.Plt_loss_sigma_c=args.Plt_loss_sigma_c
         self.Plt_loss_sigma_s=args.Plt_loss_sigma_s
         self.Plt_bilaterFilter=args.Plt_bilaterFilter
+        self.depth_loss = args.depth_loss
         if self.Plt_loss_sigma_x > 0 and self.Plt_loss_sigma_c > 0 and self.Plt_loss_sigma_s>0 and self.Plt_bilaterFilter >0:
 
             self.bilateralFilter = bilateralFilter(self.Plt_loss_sigma_x,self.Plt_loss_sigma_c,self.Plt_loss_sigma_s)
@@ -313,7 +314,7 @@ class Trainer:
 
         if 'depth_map' in res:
             depth_train = rays_train[...,0:3] + rays_train[...,3:6] * torch.reshape(res['depth_map'],(-1,1))
-            depth_loss = torch.mean((depth_train[final_mask]-depth[final_mask]) ** 2)
+            depth_loss = torch.mean((depth_train[final_mask][...,2]-depth[final_mask]) ** 2) * self.depth_loss
             total_loss = total_loss + depth_loss
 
         # Regularization

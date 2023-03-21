@@ -188,6 +188,6 @@ def write_opaque_with_color_decomposition(test_dataset, tensorf, args, true_choi
         true_idx = plt_color_decomposition(opaque,rgb_map,palette_rgb=palette,eps=eps,is_opaque=is_vis_plt)
 
         for i in true_choice:
-            filename = f'opaque_{idx}_{i}'
+            filename = f'opaque_{idx}_{i}.npy'
             out_file = os.path.join(out_path,filename)
             np.savetxt(out_file,true_idx[i])
