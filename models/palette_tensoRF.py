@@ -16,7 +16,7 @@ class PLTRender(torch.nn.Module):
     '''
     Color decomposition scheme: alpha blending
     '''
-    def __init__(self, inChanel, viewpe=6, feape=6, featureC=128, alpha_blend=False, palette=None, learn_palette=False, palette_init='userinput', soft_l0_sharpness=24.,**kwargs):
+    def __init__(self, inChanel, viewpe=6, feape=6, featureC=128, alpha_blend=False, palette=None, learn_palette=False, palette_init='userinput', color_correction=True,soft_l0_sharpness=24.,**kwargs):
         super().__init__()
 
         len_palette = len(palette)
@@ -27,6 +27,7 @@ class PLTRender(torch.nn.Module):
         self.n_dim = 3 + len_palette
         self.learn_palette = learn_palette
         self.soft_l0_sharpness = soft_l0_sharpness
+        self.color_correction_p = color_correction
         self.net1 = None
         self.net2 = None
         #调色板的训练
@@ -41,12 +42,19 @@ class PLTRender(torch.nn.Module):
 
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
         layer2 = torch.nn.Linear(featureC, featureC)
-        layer3 = torch.nn.Linear(featureC, len_palette - 1)  #alpha从2开始 所以比调色板长度少一维
+        layer3 = torch.nn.Linear(featureC, len_palette)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
+
+        "第四层 输出3维"
+        layer4 = torch.nn.Linear(learn_palette,128)
+        layer5 = torch.nn.Linear(128,3)
+
         torch.nn.init.constant_(layer3.bias, 0)
         self.mlp = torch.nn.Sequential(layer1, torch.nn.LeakyReLU(inplace=True),
                                        layer2, torch.nn.LeakyReLU(inplace=True),
                                        layer3)
-        
+        self.mlp2 = torch.nn.Sequential(torch.nn.LeakyReLU(inplace=True),layer4,
+                                        torch.nn.LeakyReLU(inplace=True),
+                                        layer5)
         self.n_dim += 1
         self.render_buf_layout.append(RenderBufferProp('sparsity_norm', 1, False))
 
@@ -54,6 +62,13 @@ class PLTRender(torch.nn.Module):
         if not alpha_blend:
             self.n_dim += 1
             self.render_buf_layout.append(RenderBufferProp('convexity_residual', 1, False))
+        if self.color_correction_p:
+            self.render_buf_layout.append(RenderBufferProp('color_correction',3,False))
+
+    def color_correction(self,logits):
+        correct = self.mlp2(logits)
+        correct = 1./(1.+torch.exp(-correct[...,:]))
+        return correct
 
     def weights_from_alpha_blending(self, logits):
         opaque = torch.sigmoid(logits)
@@ -82,6 +97,7 @@ class PLTRender(torch.nn.Module):
                 pts_choice = []
                 for i in range(len(self.net2)):
                     self.net2[f'model{i}'].to(pts.device)
+                    #对每个点进行分类，并对其赋予概率信息
                     pts_choice.append(get_class_index(self.net2[f'model{i}'](self.net1(pts.type(torch.float64)))))
 
         indata = [features, viewdirs]
@@ -109,25 +125,37 @@ class PLTRender(torch.nn.Module):
 
         conv_residual = None
         if self.alpha_blend:
-            bary_coord, opaque = self.weights_from_alpha_blending(h)
+            bary_coord, opaque = self.weights_from_alpha_blending(h[...,:-1])
             sparsity_weight = torch.exp(-torch.linspace(0, 1., bary_coord.shape[-1])).to(bary_coord.device)
         else:
-            opaque = torch.sigmoid(h)
+            opaque = torch.sigmoid(h[...,:-1])
             bary_coord = torch.cat([opaque, F.relu(1.0 - opaque.sum(-1, keepdim=True))], -1)
             sparsity_weight = torch.ones(bary_coord.shape[1]).to(bary_coord.device)
             conv_residual = torch.abs(1. - torch.sum(bary_coord, dim=-1, keepdim=True))
 
+
+
         if 'is_choose' in kwargs and kwargs['is_choose'] == True:
             palette_all = torch.ones(size=(pts.shape[0],len(palette),3),dtype=torch.float64).to(pts.device)
             for i in range(len(palette)):
+                #概率大于一定数值的为True
                 index = pts_choice[i][1] >= kwargs['probability']
+                #概率大于一定数值的分类取出
                 index2 = pts_choice[i][0][index].type(torch.long)
+                #每个类不同的调色板
                 tt = new_palette[i][index2]
+                #对不同的点赋予调色板颜色
                 palette_all[index,i,:] = tt
+                #剩下的点赋予原色
                 palette_all[index==False,i,:] = new_palette[i][-1]
+                # 得到（bs，3）
             rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)
         else:
-            rgb = bary_coord @ palette  # operator overload
+            if self.color_correction_p:
+                color_correction_r = self.color_correction(h)
+                rgb = bary_coord @ palette  + color_correction_r @ torch.tensor([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.,0.,1.]]) # operator overload
+            else:
+                rgb = bary_coord @ palette
         #稀疏度
         sparsity_weight = sparsity_weight.unsqueeze(0)
         sparsity = torch.sum(sparsity_weight * soft_L0_norm(bary_coord, scale=self.soft_l0_sharpness), dim=-1, keepdim=True)
@@ -136,6 +164,8 @@ class PLTRender(torch.nn.Module):
         rend_buf.append(sparsity)
         if conv_residual is not None:
             rend_buf.append(conv_residual)
+        if self.color_correction_p:
+            rend_buf.append(color_correction_r)
 
         return torch.cat(rend_buf, dim=-1)
 

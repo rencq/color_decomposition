@@ -488,7 +488,7 @@ class TensorBase(torch.nn.Module):
         if app_mask.any():
             app_features = self.compute_appfeature(xyz_sampled[app_mask])  #(bs*nsample-,27)
             # link PLT_blend
-            valid_render_bufs = self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)  #(bs*nsample-,9)
+            valid_render_bufs= self.renderModule(xyz_sampled[app_mask], viewdirs[app_mask], app_features, is_train, **kwargs)  #(bs*nsample-,9) + 颜色修正
             render_buf[app_mask] = valid_render_bufs.type(torch.float32)
 
 
@@ -496,7 +496,7 @@ class TensorBase(torch.nn.Module):
 
         rend_dict = split_render_buffer(render_buf, self.render_buf_layout) # rgb (bs,nsample,3) opaque (bs,nsample,palette_num) sparsity_norm (bs,nsample,1)
         """滤波loss"""
-        self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
+        # self.loss = self.get_color_and_sigma_and_alpha(app_mask,xyz_sampled, viewdirs,sigma,rend_dict)
 
         acc_map = torch.sum(weight, -1)
         # rgb_map = torch.sum(weight[..., None] * rend_dict['rgb'], -2)

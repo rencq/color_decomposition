@@ -15,7 +15,7 @@ from tqdm import trange, tqdm
 from data import dataset_dict
 from data.read_depth import depth_dataset
 from models import MODEL_ZOO
-from models.loss import TVLoss, PaletteBoundLoss,color_weight,bilateralFilter
+from models.loss import TVLoss, PaletteBoundLoss,color_weight,bilateralFilter,color_correction
 from engine.eval import evaluation, evaluation_path
 from utils.recon import convert_sdf_samples_to_ply
 from utils.render import chunkify_render, N_to_reso, cal_n_samples
@@ -164,11 +164,14 @@ class Trainer:
         self.tvreg = TVLoss()
         self.plt_bd_reg = PaletteBoundLoss(self.plt_bds_convhull_vtx)
         self.color_weight = color_weight()
+        self.color_correction = color_correction()
         self.Plt_loss_sigma_x=args.Plt_loss_sigma_x
         self.Plt_loss_sigma_c=args.Plt_loss_sigma_c
         self.Plt_loss_sigma_s=args.Plt_loss_sigma_s
         self.Plt_bilaterFilter=args.Plt_bilaterFilter
         self.depth_loss = args.depth_loss
+        self.color_correction_weight = args.color_correction_weight
+
         if self.Plt_loss_sigma_x > 0 and self.Plt_loss_sigma_c > 0 and self.Plt_loss_sigma_s>0 and self.Plt_bilaterFilter >0:
 
             self.bilateralFilter = bilateralFilter(self.Plt_loss_sigma_x,self.Plt_loss_sigma_c,self.Plt_loss_sigma_s)
@@ -312,10 +315,14 @@ class Trainer:
             img_loss_0 = torch.mean((res['rgb0_map'] - rgb_train) ** 2)
             total_loss = total_loss + img_loss_0
 
-        if 'depth_map' in res:
+        if 'depth_map' in res and self.depth_loss>0:
             depth_train = rays_train[...,0:3] + rays_train[...,3:6] * torch.reshape(res['depth_map'],(-1,1))
             depth_loss = torch.mean((depth_train[final_mask][...,2]-depth[final_mask]) ** 2) * self.depth_loss
             total_loss = total_loss + depth_loss
+
+        if 'color_correction_map' in res and self.color_correction_weight>0:
+            color_correction_loss = torch.mean(self.color_correction(res['color_correction_map'],self.color_correction_weight))
+            total_loss = total_loss + color_correction_loss
 
         # Regularization
         if self.Ortho_reg_weight > 0:

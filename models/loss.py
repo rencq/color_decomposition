@@ -13,7 +13,15 @@ class color_weight(nn.Module):
         super(color_weight, self).__init__()
 
     def forward(self,x,gama=0.1):
-        loss = torch.sum(torch.exp(x[...,:](1-x[...,:]))-1,dim=-1)
+        loss = torch.sum(torch.exp((x[...,:])*((1-x[...,:])))-1,dim=-1)
+        return loss * gama
+
+class color_correction(nn.Module):
+    def __init__(self):
+        super(color_correction).__init__()
+
+    def forward(self,x,gama=0.1):
+        loss = torch.sum(-torch.log(1.-x[...,:]),dim=-1)
         return loss * gama
 
 class bilateralFilter(nn.Module):
