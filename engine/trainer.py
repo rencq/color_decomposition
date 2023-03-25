@@ -15,7 +15,7 @@ from tqdm import trange, tqdm
 from data import dataset_dict
 from data.read_depth import depth_dataset
 from models import MODEL_ZOO
-from models.loss import TVLoss, PaletteBoundLoss,color_weight,bilateralFilter,color_correction
+from models.loss import TVLoss, PaletteBoundLoss,color_weight,bilateralFilter,color_correction,palette_loss
 from engine.eval import evaluation, evaluation_path
 from utils.recon import convert_sdf_samples_to_ply
 from utils.render import chunkify_render, N_to_reso, cal_n_samples
@@ -55,6 +55,31 @@ class SimpleSampler:
         ids = self.nextids()
         return self.all_rays[ids].to(device), self.all_rgbs[ids].to(device),self.depth[ids].to(device),self.final_mask[ids].to(device)
 
+class SimpleSampler_2:
+    def __init__(self, train_dataset, batch):
+        self.all_rays = train_dataset.all_rays
+        self.all_rgbs = train_dataset.all_rgbs
+        self.total = self.all_rays.shape[0]
+        self.curr = self.total
+        self.ids = None
+        self.batch = batch
+
+    def apply_filter(self, func, *args, **kwargs):
+        self.all_rays, self.all_rgbs = func(self.all_rays, self.all_rgbs, *args, **kwargs)
+        self.total = self.all_rays.shape[0]
+        self.curr = self.total
+        self.ids = None
+
+    def nextids(self):
+        self.curr += self.batch
+        if self.curr + self.batch > self.total:
+            self.ids = torch.LongTensor(np.random.permutation(self.total))
+            self.curr = 0
+        return self.ids[self.curr:self.curr + self.batch]
+
+    def getbatch(self, device):
+        ids = self.nextids()
+        return self.all_rays[ids].to(device), self.all_rgbs[ids].to(device)
 
 class Trainer:
     def __init__(self, args, run_dir, ckpt_dir, tb_dir):
@@ -77,7 +102,9 @@ class Trainer:
         dataset = dataset_dict[args.dataset_name]  #blenderDataset
         self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,spheric_poses=self.args.spheric_poses)
         self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,spheric_poses=self.args.spheric_poses)
-        self.depth_train_dataset = depth_dataset(args.datadir,self.train_dataset.poses.shape[0],self.train_dataset.poses,
+
+        if args.depth_loss >0:
+            self.depth_train_dataset = depth_dataset(args.datadir,self.train_dataset.poses.shape[0],self.train_dataset.poses,
                                                  split='train',downsample=args.downsample_train,is_stack=False)
         # init parameters
         self.aabb = self.train_dataset.scene_bbox.to(self.device) #init [[-1.5,-1.5,-1.5],[1.5,1.5,1.5]]
@@ -169,8 +196,7 @@ class Trainer:
         self.Plt_loss_sigma_c=args.Plt_loss_sigma_c
         self.Plt_loss_sigma_s=args.Plt_loss_sigma_s
         self.Plt_bilaterFilter=args.Plt_bilaterFilter
-        self.depth_loss = args.depth_loss
-        self.color_correction_weight = args.color_correction_weight
+        self.palette_loss_func = palette_loss()
 
         if self.Plt_loss_sigma_x > 0 and self.Plt_loss_sigma_c > 0 and self.Plt_loss_sigma_s>0 and self.Plt_bilaterFilter >0:
 
@@ -190,7 +216,14 @@ class Trainer:
         print("[trainer train] initial Plt_opaque_sps_weight", self.Plt_opaque_sps_weight)
         self.Plt_color_weight = args.Plt_color_weight
         print("[trainer train] initial Plt_color_weight", self.Plt_color_weight)
-
+        self.depth_loss = args.depth_loss
+        print("[trainer train] initial Plt_depth_loss", self.depth_loss)
+        self.color_correction_weight = args.color_correction_weight
+        print("[trainer train] initial color_correction_weight", self.color_correction_weight)
+        self.color_sps_weight = args.color_sps_weight
+        print("[trainer train] initial color_correction_weight", self.color_sps_weight)
+        self.palette_loss = args.palette_loss
+        print("[trainer train] initial palette_loss", self.palette_loss)
 
         if args.lr_decay_iters > 0:
             self.lr_factor = args.lr_decay_target_ratio ** (1 / args.lr_decay_iters)
@@ -208,11 +241,14 @@ class Trainer:
         self.summary_writer = SummaryWriter(log_dir=self.tb_dir)
 
         # data sampler
-        self.trainingSampler = SimpleSampler(self.train_dataset,self.depth_train_dataset, args.batch_size)
-
+        if self.depth_loss > 0:
+            self.trainingSampler = SimpleSampler(self.train_dataset,self.depth_train_dataset, args.batch_size)
+        else:
+            self.trainingSampler = SimpleSampler_2(self.train_dataset,args.batch_size)
 
         if not args.ndc_ray:
-            self.trainingSampler.apply_filter(tensorf.filtering_rays,is_depth=True, bbox_only=True)
+            is_depth = self.depth_loss > 0
+            self.trainingSampler.apply_filter(tensorf.filtering_rays,is_depth=is_depth, bbox_only=True)
 
         # start training
         print(f'=== training ======> {args.expname}')
@@ -292,7 +328,7 @@ class Trainer:
         np.save('palette_rgb_11.npy',tensorf.get_palette_array().detach().cpu().numpy())
         print('save palette finished~+!!!!')
 
-    def train_one_batch(self, tensorf, iteration, rays_train, rgb_train,depth,final_mask):
+    def train_one_batch(self, tensorf, iteration, rays_train, rgb_train,depth=None,final_mask=None):
         args = self.args
         white_bg = self.train_dataset.white_bg
         ndc_ray = args.ndc_ray
@@ -303,7 +339,7 @@ class Trainer:
         res = self.renderer(
             rays_train, tensorf, chunk=args.batch_size, N_samples=self.nSamples,
             white_bg=white_bg, ndc_ray=ndc_ray, device=self.device, is_train=True,
-            ret_sparsity_norm_map=True, ret_convexity_residual_map=True, ret_rgb0_map=True, ret_opaque_map=True)
+            ret_sparsity_norm_map=True, ret_convexity_residual_map=True, ret_rgb0_map=True, ret_opaque_map=True,ret_color_correction_map=True)
 
         # Loss
         img_loss = torch.mean((res['rgb_map'] - rgb_train) ** 2)
@@ -318,11 +354,19 @@ class Trainer:
         if 'depth_map' in res and self.depth_loss>0:
             depth_train = rays_train[...,0:3] + rays_train[...,3:6] * torch.reshape(res['depth_map'],(-1,1))
             depth_loss = torch.mean((depth_train[final_mask][...,2]-depth[final_mask]) ** 2) * self.depth_loss
+            assert torch.isfinite(depth_loss)
             total_loss = total_loss + depth_loss
 
         if 'color_correction_map' in res and self.color_correction_weight>0:
             color_correction_loss = torch.mean(self.color_correction(res['color_correction_map'],self.color_correction_weight))
+            assert torch.isfinite(color_correction_loss)
             total_loss = total_loss + color_correction_loss
+
+        if self.palette_loss>0:
+            palette_t = tensorf.get_palette_array()
+            loss = self.palette_loss_func(self.palette_prior.to(palette_t.device),palette_t)*self.palette_loss
+            total_loss = total_loss + loss
+
 
         # Regularization
         if self.Ortho_reg_weight > 0:
@@ -357,9 +401,10 @@ class Trainer:
             loss_opq_sps = torch.mean(res['sparsity_norm_map'])
             total_loss = total_loss + loss_opq_sps * self.Plt_opaque_sps_weight
             loss_dict['opq_sps_loss'] = loss_opq_sps.clone().detach().item()
-        if self.Plt_color_weight > 0 and 'opaque' in res:
-            opaque_map = res['opaque']
-            loss_color_weight = torch.mean(self.color_weight(opaque_map,self.Plt_color_weight))
+        if self.Plt_color_weight > 0 and 'opaque_map' in res:
+            opaque_map = res['opaque_map']
+            loss_color_weight = torch.mean(self.color_weight(opaque_map,self.Plt_color_weight,self.color_sps_weight))
+            assert torch.isfinite(loss_color_weight)
             total_loss = total_loss + loss_color_weight
             loss_dict['color'] = loss_color_weight.clone().detach().item()
 

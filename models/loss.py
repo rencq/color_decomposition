@@ -12,17 +12,25 @@ class color_weight(nn.Module):
     def __init__(self):
         super(color_weight, self).__init__()
 
-    def forward(self,x,gama=0.1):
-        loss = torch.sum(torch.exp((x[...,:])*((1-x[...,:])))-1,dim=-1)
-        return loss * gama
+    def forward(self,x,gama1=0.1,gama2=0.1):
+        loss = torch.sum(torch.exp((x[...,:])*((1-x[...,:])))-1,dim=-1)*gama1+((torch.sum(x[...,:],dim=-1)+(1e-6))/(torch.sum(x[...,:]**2,dim=-1)+(1e-6))-1.)*gama2
+        return loss
 
 class color_correction(nn.Module):
     def __init__(self):
-        super(color_correction).__init__()
+        super(color_correction,self).__init__()
 
     def forward(self,x,gama=0.1):
-        loss = torch.sum(-torch.log(1.-x[...,:]),dim=-1)
+        loss = torch.sum(torch.exp(x*10)-1.,dim=-1)
         return loss * gama
+
+class palette_loss(nn.Module):
+    def __init__(self):
+        super(palette_loss, self).__init__()
+
+    def forward(self,palette_prior,palette):
+        loss = torch.mean(torch.sum((palette_prior[...,:]-palette[...,:])**2,dim=-1),dim=-1)
+        return loss
 
 class bilateralFilter(nn.Module):
     def __init__(self,sigma_x,sigma_c,sigma_s):
@@ -36,8 +44,9 @@ class bilateralFilter(nn.Module):
         detas = torch.sum((torch.reshape(x,(-1,1,3))-torch.reshape(y,(-1,10,3)))**2/self.sigma_x,dim=-1)
         detac = torch.sum((torch.reshape(cx,(-1,1,3))-torch.reshape(cy,(-1,10,3)))**2/self.sigma_c,dim=-1)
         deta_alpha = torch.sum((torch.reshape(Alpha_x,(-1,1,Alpha_x.shape[-1]))-torch.reshape(Alpha_y,(-1,10,Alpha_y.shape[-1])))**2,dim=-1)
+        loss = torch.mean(torch.sum(torch.exp(-detas-detac-detasigma)*deta_alpha,dim=-1),dim=-1)
 
-        return torch.mean(torch.sum(torch.exp(-detas-detac-detasigma)*deta_alpha,dim=-1),dim=-1)
+        return loss
 
 
 

@@ -73,7 +73,7 @@ def pose_spherical(theta, phi, radius, coord_trans=None):
 
 
 class BlenderDataset(Dataset):
-    def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1):
+    def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1,spheric_poses=False):
 
         self.N_vis = N_vis
         self.root_dir = datadir

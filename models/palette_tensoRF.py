@@ -42,19 +42,18 @@ class PLTRender(torch.nn.Module):
 
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
         layer2 = torch.nn.Linear(featureC, featureC)
-        layer3 = torch.nn.Linear(featureC, len_palette)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
+        layer3 = torch.nn.Linear(featureC, len_palette-1)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
 
         "第四层 输出3维"
-        layer4 = torch.nn.Linear(learn_palette,128)
-        layer5 = torch.nn.Linear(128,3)
+        # layer4 = torch.nn.Linear(featureC,featureC)
+        layer4 = torch.nn.Linear(featureC,3)
 
         torch.nn.init.constant_(layer3.bias, 0)
         self.mlp = torch.nn.Sequential(layer1, torch.nn.LeakyReLU(inplace=True),
                                        layer2, torch.nn.LeakyReLU(inplace=True),
-                                       layer3)
-        self.mlp2 = torch.nn.Sequential(torch.nn.LeakyReLU(inplace=True),layer4,
-                                        torch.nn.LeakyReLU(inplace=True),
-                                        layer5)
+                                       )
+        self.mlp2 = torch.nn.Sequential(layer3)
+        self.mlp3 = torch.nn.Sequential(layer4)
         self.n_dim += 1
         self.render_buf_layout.append(RenderBufferProp('sparsity_norm', 1, False))
 
@@ -63,11 +62,11 @@ class PLTRender(torch.nn.Module):
             self.n_dim += 1
             self.render_buf_layout.append(RenderBufferProp('convexity_residual', 1, False))
         if self.color_correction_p:
-            self.render_buf_layout.append(RenderBufferProp('color_correction',3,False))
+            self.n_dim +=3
+            self.render_buf_layout.append(RenderBufferProp('color_correction',3,True))
 
     def color_correction(self,logits):
-        correct = self.mlp2(logits)
-        correct = 1./(1.+torch.exp(-correct[...,:]))
+        correct = self.mlp3(logits)
         return correct
 
     def weights_from_alpha_blending(self, logits):
@@ -85,6 +84,20 @@ class PLTRender(torch.nn.Module):
 
     #这里对网络计算
     def forward(self, pts, viewdirs, features, is_train=False, **kwargs):
+        palette = self.palette.get_palette_array()
+        if not is_train and 'palette' in kwargs:
+            palette = kwargs['palette'].to(pts.device)
+
+            if 'new_palette' in kwargs and kwargs['new_palette']:
+                new_palette = kwargs['new_palette']
+
+            # 调试  以50%的概率选择调色盘
+            # x = random.uniform(0,1)
+            # if(x<0.5):
+            #     palette = palette
+            # else:
+            #     palette = new_palette
+            assert isinstance(palette, torch.Tensor)
         #pts xyz  (sample_num , 3)  features (sample_num,27)
         if 'is_choose' in kwargs and kwargs['is_choose'] == True:
             if ('net1' in kwargs and kwargs['net1']):
@@ -95,10 +108,22 @@ class PLTRender(torch.nn.Module):
 
             if self.net1 and self.net2:
                 pts_choice = []
-                for i in range(len(self.net2)):
-                    self.net2[f'model{i}'].to(pts.device)
-                    #对每个点进行分类，并对其赋予概率信息
-                    pts_choice.append(get_class_index(self.net2[f'model{i}'](self.net1(pts.type(torch.float64)))))
+                if 'edit' in kwargs and kwargs['edit'] !=-1:
+                    self.edit = kwargs['edit']
+                    self.net2[f'model{self.edit}'].to(pts.device)
+                    for i in range(palette.shape[0]):
+
+                        #对每个点进行分类，并对其赋予概率信息
+                        if i == self.edit:
+                            pts_choice.append(get_class_index(self.net2[f'model{i}'](self.net1(pts.type(torch.float64)))))
+                        else:
+                            pts_class_tmp = [torch.zeros((pts.shape[0],1),dtype=torch.long),torch.zeros((pts.shape[0],1),dtype=torch.float64)]
+                            pts_choice.append(pts_class_tmp)
+                else:
+                    for i in range(len(self.net2)):
+                        self.net2[f'model{i}'].to(pts.device)
+                        #对每个点进行分类，并对其赋予概率信息
+                        pts_choice.append(get_class_index(self.net2[f'model{i}'](self.net1(pts.type(torch.float64)))))
 
         indata = [features, viewdirs]
         if self.feape > 0:
@@ -106,29 +131,17 @@ class PLTRender(torch.nn.Module):
         if self.viewpe > 0:
             indata.append(positional_encoding(viewdirs, self.viewpe))
         #这里卷积
-        h = self.mlp(torch.cat(indata, dim=-1))
+        h_tmp = self.mlp(torch.cat(indata, dim=-1))
+        h = self.mlp2(h_tmp)
 
-        palette = self.palette
-        if not is_train and 'palette' in kwargs:
-            palette = kwargs['palette'].to(pts.device)
 
-            if 'new_palette' in kwargs and kwargs['new_palette'] :
-                new_palette = kwargs['new_palette']
-
-            #调试  以50%的概率选择调色盘
-            # x = random.uniform(0,1)
-            # if(x<0.5):
-            #     palette = palette
-            # else:
-            #     palette = new_palette
-            assert isinstance(palette, torch.Tensor)
 
         conv_residual = None
         if self.alpha_blend:
-            bary_coord, opaque = self.weights_from_alpha_blending(h[...,:-1])
+            bary_coord, opaque = self.weights_from_alpha_blending(h)
             sparsity_weight = torch.exp(-torch.linspace(0, 1., bary_coord.shape[-1])).to(bary_coord.device)
         else:
-            opaque = torch.sigmoid(h[...,:-1])
+            opaque = torch.sigmoid(h)
             bary_coord = torch.cat([opaque, F.relu(1.0 - opaque.sum(-1, keepdim=True))], -1)
             sparsity_weight = torch.ones(bary_coord.shape[1]).to(bary_coord.device)
             conv_residual = torch.abs(1. - torch.sum(bary_coord, dim=-1, keepdim=True))
@@ -138,24 +151,38 @@ class PLTRender(torch.nn.Module):
         if 'is_choose' in kwargs and kwargs['is_choose'] == True:
             palette_all = torch.ones(size=(pts.shape[0],len(palette),3),dtype=torch.float64).to(pts.device)
             for i in range(len(palette)):
-                #概率大于一定数值的为True
-                index = pts_choice[i][1] >= kwargs['probability']
-                #概率大于一定数值的分类取出
-                index2 = pts_choice[i][0][index].type(torch.long)
-                #每个类不同的调色板
-                tt = new_palette[i][index2]
-                #对不同的点赋予调色板颜色
-                palette_all[index,i,:] = tt
-                #剩下的点赋予原色
-                palette_all[index==False,i,:] = new_palette[i][-1]
-                # 得到（bs，3）
-            rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)
+                if 'edit' in kwargs and kwargs['edit'] !=-1:
+                    index = pts_choice[i][:][0]
+                    tt = new_palette[i][index]
+                    palette_all[...,i,:] = tt.reshape(-1,3)
+
+                else:
+                    #概率大于一定数值的为True
+                    index = pts_choice[i][1] >= kwargs['probability']
+                    #概率大于一定数值的分类取出
+                    index2 = pts_choice[i][0][index].type(torch.long)
+                    #每个类不同的调色板
+                    tt = new_palette[i][index2]
+                    #对不同的点赋予调色板颜色
+                    palette_all[index,i,:] = tt
+                    #剩下的点赋予原色
+                    palette_all[index==False,i,:] = new_palette[i][-1]
+
+            if self.color_correction_p:
+                color_correction_r = self.color_correction(h_tmp)
+                rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)  + color_correction_r @ torch.tensor([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.,0.,1.]]).to(color_correction_r.device) # operator overload
+                color_correction_r = color_correction_r ** 2
+            else:
+                # 得到（bs，3)
+                rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0], len(palette), 1) * palette_all, dim=1)
         else:
             if self.color_correction_p:
-                color_correction_r = self.color_correction(h)
-                rgb = bary_coord @ palette  + color_correction_r @ torch.tensor([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.,0.,1.]]) # operator overload
+                color_correction_r = self.color_correction(h_tmp)
+                rgb = bary_coord @ palette  + color_correction_r @ torch.tensor([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.,0.,1.]]).to(color_correction_r.device) # operator overload
+                color_correction_r = color_correction_r ** 2
             else:
                 rgb = bary_coord @ palette
+
         #稀疏度
         sparsity_weight = sparsity_weight.unsqueeze(0)
         sparsity = torch.sum(sparsity_weight * soft_L0_norm(bary_coord, scale=self.soft_l0_sharpness), dim=-1, keepdim=True)

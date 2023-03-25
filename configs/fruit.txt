@@ -1,18 +1,18 @@
 dataset_name = llff
-datadir = /home/ubuntu/Rencq/nerf_data/nerf_llff_data/fruit
+datadir = /root/autodl-tmp/nerf_data/fruit
 expname = fruit
 basedir = ./logs
 
 downsample_train = 2
 ndc_ray = 0
 
-n_iters = 70000
+n_iters = 40000
 batch_size = 4096
 
 N_voxel_init = 2097152 # 128**3
 N_voxel_final = 1000000000 # 1000**3
-upsamp_list = [2000,4000,6000] #体素采样上涨
-update_AlphaMask_list = [2000,3000,5000] #过滤光线
+upsamp_list = [3000,4000,5000,6000] #体素采样上涨
+update_AlphaMask_list = [3300,5500] #过滤光线
 
 N_vis = 5
 vis_every = 10000
@@ -26,8 +26,8 @@ model_name = PaletteTensorVM
 shadingMode = PLT_AlphaBlend
 fea2denseAct = relu
 
-view_pe = 4
-fea_pe = 4
+view_pe = 2
+fea_pe = 2
 
 L1_weight_inital = 8e-5
 L1_weight_rest = 4e-5
@@ -36,11 +36,13 @@ rm_weight_mask_thre = 1e-4
 Plt_bd_weight = 1.0
 Plt_opaque_sps_weight = 0
 
-Plt_color_weight = 5
+Plt_color_weight = 0.00155
 Plt_loss_sigma_x = 0.
 Plt_loss_sigma_c = 0.
 Plt_loss_sigma_s = 0.
 Plt_bilaterFilter = 0.
+depth_loss=0.1
+color_correction_weight=1e-6
 
 palette_path = ./data_palette/fruit/rgb_palette.npy
 learn_palette = True

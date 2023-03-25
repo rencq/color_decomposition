@@ -525,6 +525,7 @@ class TensorBase(torch.nn.Module):
 
         ret['depth_map'] = depth_map
 
+
         if kwargs.get('ret_weight', False):
             ret['weight'] = weight
         if kwargs.get('ret_acc_map', False):

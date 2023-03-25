@@ -1,11 +1,11 @@
 import numpy as np
 import torch
 from train import  k_fold
-from point_Model.point import point_cloud,point_cloud_classical,point_cloud_classical_num
+from point_Model.point import point_cloud,point_cloud_classical,point_cloud_classical_num,point_empty
 import os
 
-edit = 4
-indata = f"/home/ubuntu/Rencq/nerf_data/point_cloud/fern/opaque_3/eps007points40/out_point_cloud{edit}.txt"
+edit = 0
+indata = f"/root/autodl-tmp/process_data/fruit_opaque/out_point/out/out_point_clouds_{edit}_correct.txt"
 
 output_path = '../logs'
 input = np.loadtxt(indata)
@@ -16,18 +16,18 @@ output = int(output)
 X_train = input[...,0:3].clone()
 # y_train = input[...,3]
 y_train = input[...,3].clone()
-y_train = torch.tensor(y_train,dtype=torch.long)
+y_train = y_train.type(torch.long)
 print("input data\n",input)
 print("output class\n",output)
 print("X train\n",X_train)
 print("y train\n",y_train)
-model1 = point_cloud(3,1,1,256)
-model2 = point_cloud_classical(256,output)
+model1 = point_empty()
+model2 = point_cloud_classical(3,output)
 
-num_epochs=500
+num_epochs=30
 learning_rate=0.001
 weight_decay=0.01
-batch_size=4000
+batch_size=100000
 
 
 

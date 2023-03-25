@@ -47,7 +47,7 @@ def visualize_palette_components_numpy(opaque, palette):
     opaque = np.transpose(opaque, (2, 0, 1, 3))
     return np.concatenate(list(opaque), axis=1)
 
-def plot_palette_colors(palette, filename,c=50):
+def plot_palette_colors(palette, filename=None,c=50):
     '''
     palette: M*3
     '''
@@ -58,4 +58,5 @@ def plot_palette_colors(palette, filename,c=50):
     plt.figure()
     plt.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
     plt.imshow(palette2)
-    cv2.imwrite(filename,palette2*255)
+    if filename is not None:
+        cv2.imwrite(filename,palette2*255)

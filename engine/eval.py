@@ -15,7 +15,7 @@ from utils.vis import visualize_depth_numpy, visualize_palette_components_numpy
 
 @torch.no_grad()
 def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_samples=-1, white_bg=False, ndc_ray=False,
-                compute_extra_metrics=True, save_gt=False, save_video=False, palette=None, new_palette=None,device='cuda',is_choose=False,net1=None,net2=None,probability=0.):
+                compute_extra_metrics=True, save_gt=False, save_video=False, palette=None, new_palette=None,device='cuda',is_choose=False,net1=None,net2=None,probability=0.,**kwargs):
     PSNRs, rgb_maps, depth_maps = [], [], []
     plt_decomp_maps = []
     plt_opaque_maps = []
@@ -41,7 +41,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
 
         # plt_map, _, depth_map, _, _
         res = renderer(rays, tensorf, chunk=4096, N_samples=N_samples, ndc_ray=ndc_ray, white_bg=white_bg, device=device,
-                       ret_opaque_map=True, palette=palette,new_palette=new_palette,is_choose=is_choose,net1=net1,net2=net2,probability=probability)
+                       ret_opaque_map=True, palette=palette,new_palette=new_palette,is_choose=is_choose,net1=net1,net2=net2,probability=probability,**kwargs)
         # rgb_map = plt_map[..., :3].clamp(0.0, 1.0)
         rgb_map = res['rgb_map']
         depth_map = res['depth_map']
@@ -109,7 +109,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
 
 @torch.no_grad()
 def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samples=-1,
-                    white_bg=False, ndc_ray=False, save_video=False, palette=None,new_palette=None, device='cuda',is_choose=False,net1=None,net2=None,probability=0.):
+                    white_bg=False, ndc_ray=False, save_video=False, palette=None,new_palette=None, device='cuda',is_choose=False,net1=None,net2=None,probability=0.,**kwargs):
     rgb_maps, depth_maps = [], []
     plt_decomp_maps = []
 
@@ -134,7 +134,7 @@ def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samp
         rays = torch.cat([rays_o, rays_d], 1)  # (h*w, 6)
 
         res = renderer(rays, tensorf, chunk=4096, N_samples=N_samples, ndc_ray=ndc_ray, white_bg=white_bg, device=device,
-                       ret_opaque_map=True, new_palette=new_palette,palette=palette,is_choose=is_choose,net1=net1,net2=net2,probability=probability)
+                       ret_opaque_map=True, new_palette=new_palette,palette=palette,is_choose=is_choose,net1=net1,net2=net2,probability=probability,**kwargs)
         # rgb_map = rend_map[..., :3].clamp(0.0, 1.0)
         rgb_map = res['rgb_map']
         depth_map = res['depth_map']

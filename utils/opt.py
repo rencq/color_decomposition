@@ -59,6 +59,8 @@ def config_parser():
     parser.add_argument("--Plt_bilaterFilter",type=float,default=0.01)
     parser.add_argument("--depth_loss", type=float, default=0.1)
     parser.add_argument("--color_correction_weight",type=float,default=0.1)
+    parser.add_argument("--color_sps_weight",type=float,default=0.1)
+    parser.add_argument("--palette_loss",type=float,default=0.1)
     # tensorf model
     ## volume options
     parser.add_argument("--n_lamb_sigma", type=int, action="append")
