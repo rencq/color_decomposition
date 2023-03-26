@@ -29,7 +29,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
     idxs = list(range(0, test_dataset.all_rays.shape[0], img_eval_interval))
 
     if palette is None and hasattr(tensorf, 'get_palette_array'):
-        palette = tensorf.get_palette_array().cpu()
+        palette = tensorf.get_palette_array().clamp(0.,1.).cpu()
 
     test_rays = test_dataset.all_rays[0::img_eval_interval]
     pbar = trange(len(test_rays), file=sys.stdout, position=0, leave=True)
@@ -75,7 +75,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
 
         is_vis_plt = (palette is not None) and ('opaque_map' in res)
         if is_vis_plt:
-            opaque = rearrange(res['opaque_map'], '(h w) c-> h w c', h=H, w=W).cpu()
+            opaque = rearrange(res['opaque_map'], '(h w) c-> h w c', h=H, w=W).clamp(0.,1.).cpu()
             plt_decomp = visualize_palette_components_numpy(opaque.numpy(), palette.numpy())
             plt_decomp = (plt_decomp * 255).astype('uint8')
             plt_decomp_maps.append(plt_decomp)
@@ -120,7 +120,7 @@ def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samp
     near_far = test_dataset.near_far
 
     if palette is None and hasattr(tensorf, 'get_palette_array'):
-        palette = tensorf.get_palette_array().cpu()
+        palette = tensorf.get_palette_array().clamp(0.,1.).cpu()
 
     pbar = trange(len(c2ws), file=sys.stdout)
     for idx in pbar:
@@ -150,7 +150,7 @@ def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samp
 
         is_vis_plt = (palette is not None) and ('opaque_map' in res)
         if is_vis_plt:
-            opaque = rearrange(res['opaque_map'], '(h w) c-> h w c', h=H, w=W).cpu()
+            opaque = rearrange(res['opaque_map'], '(h w) c-> h w c', h=H, w=W).clamp(0.,1.).cpu()
             plt_decomp = visualize_palette_components_numpy(opaque.numpy(), palette.numpy())
             plt_decomp = (plt_decomp * 255).astype('uint8')
             plt_decomp_maps.append(plt_decomp)
