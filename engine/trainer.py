@@ -221,7 +221,7 @@ class Trainer:
         self.color_correction_weight = args.color_correction_weight
         print("[trainer train] initial color_correction_weight", self.color_correction_weight)
         self.color_sps_weight = args.color_sps_weight
-        print("[trainer train] initial color_correction_weight", self.color_sps_weight)
+        print("[trainer train] initial color_sps_weight", self.color_sps_weight)
         self.palette_loss = args.palette_loss
         print("[trainer train] initial palette_loss", self.palette_loss)
 
@@ -311,7 +311,7 @@ class Trainer:
                     savePath = Path(self.run_dir, f'testset_vis_{iteration:06d}')
                     PSNRs_test = evaluation(self.test_dataset, tensorf, args, self.renderer, os.fspath(savePath),
                                             N_vis=args.N_vis, N_samples=self.nSamples, white_bg=white_bg, ndc_ray=args.ndc_ray,
-                                            compute_extra_metrics=False, save_gt=True)
+                                            compute_extra_metrics=False, save_gt=True,ret_color_correction_map=True)
                     self.summary_writer.add_scalar('test/psnr', np.mean(PSNRs_test), global_step=iteration)
                     print(f'=== continue training ======>')
                 except Exception as e:
@@ -332,7 +332,7 @@ class Trainer:
         args = self.args
         white_bg = self.train_dataset.white_bg
         ndc_ray = args.ndc_ray
-        
+
         loss_dict = {}
 
         # render training rays
@@ -343,10 +343,11 @@ class Trainer:
 
         # Loss
         img_loss = torch.mean((res['rgb_map'] - rgb_train) ** 2)
-        loss_dict['img_loss'] = img_loss.clone().detach().item()
+
 
         total_loss = img_loss
         #res rgb_map opaque_map sparsity_norm_map depth_map
+
         if 'rgb0_map' in res:
             img_loss_0 = torch.mean((res['rgb0_map'] - rgb_train) ** 2)
             total_loss = total_loss + img_loss_0
@@ -358,9 +359,13 @@ class Trainer:
             total_loss = total_loss + depth_loss
 
         if 'color_correction_map' in res and self.color_correction_weight>0:
-            color_correction_loss = torch.mean(self.color_correction(res['color_correction_map'],self.color_correction_weight))
+            color_correction_loss,img_loss0 = self.color_correction(rgb_train,res['rgb_map'].clone().detach(),res['color_correction_map'],self.color_correction_weight)
             assert torch.isfinite(color_correction_loss)
             total_loss = total_loss + color_correction_loss
+
+            loss_dict['img_loss'] = img_loss0.clone().detach().item()
+        else:
+            loss_dict['img_loss'] = img_loss.clone().detach().item()
 
         if self.palette_loss>0:
             palette_t = tensorf.get_palette_array()

@@ -20,9 +20,11 @@ class color_correction(nn.Module):
     def __init__(self):
         super(color_correction,self).__init__()
 
-    def forward(self,x,gama=0.1):
-        loss = torch.sum(torch.exp(x*10)-1.,dim=-1)
-        return loss * gama
+    def forward(self,rgb_original,rgb,x,gama=0.1):
+        img_loss = torch.mean((rgb_original - (rgb+ x @ torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0., 0., 1.]]).to(rgb.device)))**2.)
+        x = x ** 2
+        color_correction_loss = torch.mean(torch.exp(torch.sum(x,dim=-1)) - 1.)
+        return img_loss + color_correction_loss * gama,img_loss
 
 class palette_loss(nn.Module):
     def __init__(self):

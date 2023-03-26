@@ -42,7 +42,7 @@ class PLTRender(torch.nn.Module):
 
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
         layer2 = torch.nn.Linear(featureC, featureC)
-        layer3 = torch.nn.Linear(featureC, len_palette-1)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
+        layer3 = torch.nn.Linear(featureC, len_palette)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
 
         "第四层 输出3维"
         # layer4 = torch.nn.Linear(featureC,featureC)
@@ -70,16 +70,18 @@ class PLTRender(torch.nn.Module):
         return correct
 
     def weights_from_alpha_blending(self, logits):
-        opaque = torch.sigmoid(logits)
-        log_opq = F.logsigmoid(logits)
-        log_wa = torch.cumsum(F.logsigmoid(torch.neg(logits)), dim=-1)
-        #alpha混合计算公式
-        w_0 = opaque[..., :1]
-        w_a = torch.exp(log_wa[..., :-1] + log_opq[..., 1:])
-        w_last = torch.exp(log_wa[..., -1:])
-        bary_coord = torch.cat((w_0, w_a, w_last), dim=-1)
+        opaque = torch.nn.functional.softmax(logits,dim=-1)
+        # opaque = torch.sigmoid(logits)
+        # log_opq = F.logsigmoid(logits)
+        # log_wa = torch.cumsum(F.logsigmoid(torch.neg(logits)), dim=-1)
+        # #alpha混合计算公式
+        # w_0 = opaque[..., :1]
+        # w_a = torch.exp(log_wa[..., :-1] + log_opq[..., 1:])
+        # w_last = torch.exp(log_wa[..., -1:])
+        # bary_coord = torch.cat((w_0, w_a, w_last), dim=-1)
         # bary_coord guarantee sum to 1
         # assert torch.allclose(bary_coord.sum(dim=-1), torch.ones(()), atol=1e-3)
+        bary_coord = opaque
         return bary_coord, opaque
 
     #这里对网络计算
@@ -178,8 +180,8 @@ class PLTRender(torch.nn.Module):
         else:
             if self.color_correction_p:
                 color_correction_r = self.color_correction(h_tmp)
-                rgb = bary_coord @ palette  + color_correction_r @ torch.tensor([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.,0.,1.]]).to(color_correction_r.device) # operator overload
-                color_correction_r = color_correction_r ** 2
+                rgb = bary_coord @ palette   # operator overload
+
             else:
                 rgb = bary_coord @ palette
 

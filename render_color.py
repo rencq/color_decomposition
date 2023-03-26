@@ -87,7 +87,7 @@ path_redirect = [
     ('palette_path', '../data_palette', './data_palette')
 ]
 # %%
-run_dir = './logs/playground/'
+run_dir = './logs/fern/'
 ckpt_path = None
 out_dir = os.path.join(run_dir, 'demo_out')
 # Setup trainer
@@ -96,7 +96,7 @@ ckpt_dir = os.path.join(run_dir, 'checkpoints')
 tb_dir = os.path.join(run_dir, 'tensorboard')
 
 '''Modify this to name this editing'''
-edit_name = 'test_playground_sunset_color_weight_00015_correct_5e_4_sparse_0002'
+edit_name = 'test_fern_5_test'
 
 print('Run dir:', run_dir)
 print('Demo output dir:', out_dir)
@@ -260,7 +260,7 @@ read color
 # palette_prior = np.load('palette_rgb_11.npy')
 """ color edit"""
 palette = model.renderModule.palette.get_palette_array().detach()
-palette[...,1,:] = torch.tensor([1.,0.5,0.])
+palette[...,2,:] = torch.tensor([1.,0.,0.])
 #
 # palette = palette[...,:4,:]
 # save_palette(palette.cpu().numpy())
@@ -332,4 +332,4 @@ sole palette
 # new_palette = np.load("./data_palette/data4_playground/rgb_palette_correct.npy")
 # print(new_palette)
 
-save(palette.cpu(),new_palette=None,N_samples=args.nSamples)
+save(palette.cpu(),new_palette=None,N_samples=args.nSamples,ret_color_correction_map=True)
