@@ -46,7 +46,7 @@ class PLTRender(torch.nn.Module):
 
         "第四层 输出3维"
         # layer4 = torch.nn.Linear(featureC,featureC)
-        layer4 = torch.nn.Linear(featureC,featureC)
+        # layer4 = torch.nn.Linear(featureC,featureC)
         layer5 = torch.nn.Linear(featureC,3)
 
         torch.nn.init.constant_(layer3.bias, 0)
@@ -54,7 +54,7 @@ class PLTRender(torch.nn.Module):
                                        layer2, torch.nn.LeakyReLU(inplace=True),
                                        )
         self.mlp2 = torch.nn.Sequential(layer3)
-        self.mlp3 = torch.nn.Sequential(layer4, torch.nn.LeakyReLU(inplace=True),layer5)
+        self.mlp3 = torch.nn.Sequential(layer5)
         self.n_dim += 1
         self.render_buf_layout.append(RenderBufferProp('sparsity_norm', 1, False))
 
