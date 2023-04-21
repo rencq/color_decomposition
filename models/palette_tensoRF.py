@@ -42,19 +42,29 @@ class PLTRender(torch.nn.Module):
 
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
         layer2 = torch.nn.Linear(featureC, featureC)
-        layer3 = torch.nn.Linear(featureC, len_palette)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
+        # layer3 = torch.nn.Linear(featureC, featureC)  #alpha从2开始 所以比调色板长度少一维,增加一维颜色修正
 
         "第四层 输出3维"
         # layer4 = torch.nn.Linear(featureC,featureC)
-        # layer4 = torch.nn.Linear(featureC,featureC)
-        layer5 = torch.nn.Linear(featureC,3)
+        # layer5 = torch.nn.Linear(featureC,featureC)
+        layer6 = torch.nn.Linear(featureC,len_palette)
 
-        torch.nn.init.constant_(layer3.bias, 0)
+        # layer7 = torch.nn.Linear(featureC, featureC)
+        # layer8 = torch.nn.Linear(featureC, featureC)
+        layer9 = torch.nn.Linear(featureC, 3)
+
+
+        torch.nn.init.constant_(layer6.bias, 0)
         self.mlp = torch.nn.Sequential(layer1, torch.nn.LeakyReLU(inplace=True),
                                        layer2, torch.nn.LeakyReLU(inplace=True),
+                                       # layer3, torch.nn.LeakyReLU(inplace=True),
                                        )
-        self.mlp2 = torch.nn.Sequential(layer3)
-        self.mlp3 = torch.nn.Sequential(layer5)
+        self.mlp2 = torch.nn.Sequential(
+            # layer4,torch.nn.LeakyReLU(inplace=True),layer5,torch.nn.LeakyReLU(inplace=True),
+            layer6)
+        self.mlp3 = torch.nn.Sequential(
+            # layer7,torch.nn.LeakyReLU(inplace=True),layer8,torch.nn.LeakyReLU(inplace=True),
+            layer9)
         self.n_dim += 1
         self.render_buf_layout.append(RenderBufferProp('sparsity_norm', 1, False))
 
@@ -67,7 +77,7 @@ class PLTRender(torch.nn.Module):
             self.render_buf_layout.append(RenderBufferProp('color_correction',3,True))
 
     def color_correction(self,logits):
-        correct = self.mlp3(logits)
+        correct = torch.tanh(self.mlp3(logits))
         return correct
 
     def weights_from_alpha_blending(self, logits):
@@ -173,8 +183,8 @@ class PLTRender(torch.nn.Module):
 
             if self.color_correction_p:
                 color_correction_r = self.color_correction(h_tmp)
-                rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)  + color_correction_r @ torch.tensor([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.,0.,1.]]).to(color_correction_r.device) # operator overload
-                color_correction_r = color_correction_r ** 2
+                rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0],len(palette),1) * palette_all,dim=1)   # operator overload
+
             else:
                 # 得到（bs，3)
                 rgb = torch.sum(bary_coord.reshape(bary_coord.shape[0], len(palette), 1) * palette_all, dim=1)

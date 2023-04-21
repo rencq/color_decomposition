@@ -87,20 +87,20 @@ path_redirect = [
     ('palette_path', '../data_palette', './data_palette')
 ]
 # %%
-run_dir = './logs/fern/'
+run_dir = './logs/playground/'
 ckpt_path = None
 out_dir = os.path.join(run_dir, 'demo_out')
 # Setup trainer
 print('Initializing trainer and model...')
-ckpt_dir = os.path.join(run_dir, 'checkpoints')
+ckpt_dir = os.path.join(run_dir, 'checkpoints_5_00005_0001')
 tb_dir = os.path.join(run_dir, 'tensorboard')
 
 '''Modify this to name this editing'''
-edit_name = 'test_fern_5_test'
+edit_name = 'test_playground_y2g'
 
 print('Run dir:', run_dir)
 print('Demo output dir:', out_dir)
-# %% md
+# %%
 ## Load and Setup
 # %%
 # Read args
@@ -230,7 +230,7 @@ def save_palette(new_palette):
 # %%
     '''Choose between 'test' / 'path' '''
 def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None,probability=0.,**kwargs):
-    cam_poses = 'test'
+    cam_poses = 'train'
 
     save_dir = os.path.join(out_dir, f'render_{cam_poses}{"_" + edit_name if edit_name else ""}')
 
@@ -238,8 +238,12 @@ def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None,pr
         print('Error: directory exists. Please specify another `edit_name`.')
     else:
         c2ws = trainer.test_dataset.poses if cam_poses == 'test' else trainer.test_dataset.render_path
+        if cam_poses=='train':
+            c2ws = trainer.train_dataset.poses
         if cam_poses == 'test' :
-            c2ws = c2ws[::8, ...]
+            c2ws = c2ws[::1, ...]
+        else:
+            c2ws = c2ws[::1,...]
         white_bg = trainer.test_dataset.white_bg
         ndc_ray = trainer.args.ndc_ray
 
@@ -251,6 +255,7 @@ def save(palette,new_palette,N_samples=-1,is_choose=False,net1=None,net2=None,pr
                             N_samples=N_samples, white_bg=white_bg, ndc_ray=ndc_ray, save_video=True, device=trainer.device,is_choose=is_choose,net1=net1,net2=net2,probability=probability,**kwargs)
     # %%
 
+
 # %%
 
 """
@@ -260,7 +265,7 @@ read color
 # palette_prior = np.load('palette_rgb_11.npy')
 """ color edit"""
 palette = model.renderModule.palette.get_palette_array().detach()
-palette[...,2,:] = torch.tensor([1.,0.,0.])
+# palette[...,0,:] = torch.tensor([1.,0.,0.])
 #
 # palette = palette[...,:4,:]
 # save_palette(palette.cpu().numpy())
@@ -270,7 +275,7 @@ palette[...,2,:] = torch.tensor([1.,0.,0.])
 # print(palette)
 # # print(palette_prior)
 # # save(palette_prior,palette)
-# edit = 1
+# edit = 3
 # new_palette = []
 # input_num = []
 # out_put_num = []
@@ -293,7 +298,8 @@ many palette
 """
 sole palette
 """
-# indata = f"/root/autodl-tmp/process_data/fruit_opaque/out_point/out/out_point_clouds_0_correct.txt"
+
+# indata = f"/home/ubuntu/data/fruit/point_cloud/out_point_clouds_correct_{edit}.txt"
 # input = np.loadtxt(indata)
 # input = torch.tensor(input,dtype=torch.float64)
 # maxlabel = max(input[...,3])
@@ -305,31 +311,31 @@ sole palette
 #         new_palette.append(palette[i].repeat(1).reshape((-1,palette.shape[1])).type(torch.float64).to(device))
 
 
-
+#
 # print("======>new_palette\n")
 # print(new_palette)
-
+#
 # net1 = point_empty()
 # # net1.load_state_dict(torch.load('./logs/point_cloud/model1_param_0.pth',map_location=device))
 # print("========>  load net1 state_dict finished ")
 # net2 = {}
 # net2[f'model{edit}'] = point_cloud_classical(3,2)
 
-# # for i in range(len(palette)):
-# #     if i == edit:
-# #         net2[f'model{i}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{i}.pth',map_location=device))
+# for i in range(len(palette)):
+#     if i == edit:
+#         net2[f'model{i}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{i}.pth',map_location=device))
 # net2[f'model{edit}'].load_state_dict(torch.load(f'./logs/point_cloud/model2_param_{edit}.pth',map_location=device))
 # print("========>  load net2 state_dict finished ")
 # print("nSamples =====> ",args.nSamples)
-# new_palette[1][1] = torch.tensor([1.,0.,0.],dtype=torch.float64)
+# new_palette[edit][0] = torch.tensor([1.,0.,0.],dtype=torch.float64)
 # print("=======> changed new palette")
 # print(new_palette)
 # print(palette)
-# save(palette.cpu(),new_palette=new_palette,is_choose=True,net1=net1,net2=net2,N_samples=args.nSamples,edit=1)
+# save(palette.cpu(),new_palette=new_palette,is_choose=True,net1=net1,net2=net2,N_samples=args.nSamples,edit=edit,ret_color_correction_map=True)
 # print("++++++++++++palette+++++++++++++")
 # print(palette)
 # print("++++++++++++newpalette+++++++++++")
-# new_palette = np.load("./data_palette/data4_playground/rgb_palette_correct.npy")
 # print(new_palette)
-
+# new_palette = np.load("./data_palette/data4_playground/rgb_palette_correct.npy")
+palette[...,0,:] = torch.tensor([0,1,0])
 save(palette.cpu(),new_palette=None,N_samples=args.nSamples,ret_color_correction_map=True)

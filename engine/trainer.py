@@ -359,7 +359,7 @@ class Trainer:
             total_loss = total_loss + depth_loss
 
         if 'color_correction_map' in res and self.color_correction_weight>0:
-            color_correction_loss,img_loss0 = self.color_correction(rgb_train,res['rgb_map'].clone().detach(),res['color_correction_map'],self.color_correction_weight)
+            color_correction_loss,img_loss0 = self.color_correction(rgb_train,res['rgb_map'],res['color_correction_map'],self.color_correction_weight)
             assert torch.isfinite(color_correction_loss)
             total_loss = total_loss + color_correction_loss
 

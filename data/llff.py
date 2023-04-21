@@ -145,7 +145,7 @@ class LLFFDataset(Dataset):
         else:
             self.near_far = [0.0, 1.0]
         if self.spheric_poses:
-            self.scene_bbox = torch.tensor([[-5., -5.7, -5.], [5., 5.7, 5.]])
+            self.scene_bbox = torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]])
         else:
             self.scene_bbox = torch.tensor([[-1.5,-1.67,-1.5],[1.5,1.67,1.5]])
         # self.scene_bbox = torch.tensor([[-1.67, -1.5, -1.0], [1.67, 1.5, 1.0]])
@@ -217,14 +217,14 @@ class LLFFDataset(Dataset):
         dists = np.sum(np.square(average_pose[:3, 3] - self.poses[:, :3, 3]), -1)
         i_test = np.arange(0, self.poses.shape[0], self.hold_every)  # [np.argmin(dists)]
         #测试集 训练集分开
-        img_list = i_test if self.split != 'train' else list(set(np.arange(len(self.poses))) - set(i_test))
+        self.img_list = i_test if self.split != 'train' else list(set(np.arange(len(self.poses))) - set(i_test))
         print("=============img_list==============")
-        print(img_list)
+        print(self.img_list)
         # use first N_images-1 to train, the LAST is val
         self.all_rays = []
         self.all_rgbs = []
         self.all_rays_original=[]
-        for i in img_list:
+        for i in self.img_list:
             image_path = self.image_paths[i]
             c2w = torch.FloatTensor(self.poses[i])
 

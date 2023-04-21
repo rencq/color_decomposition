@@ -43,8 +43,10 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
         res = renderer(rays, tensorf, chunk=4096, N_samples=N_samples, ndc_ray=ndc_ray, white_bg=white_bg, device=device,
                        ret_opaque_map=True, palette=palette,new_palette=new_palette,is_choose=is_choose,net1=net1,net2=net2,probability=probability,**kwargs)
         # rgb_map = plt_map[..., :3].clamp(0.0, 1.0)
-
-        rgb_map = res['rgb_map']+ res['color_correction_map'] @ torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0., 0., 1.]]).to(res['color_correction_map'].device)
+        if 'color_correction_map' in res:
+            rgb_map = res['rgb_map']+ res['color_correction_map'] @ torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0., 0., 1.]]).to(res['color_correction_map'].device)
+        else:
+            rgb_map = res['rgb_map']
         depth_map = res['depth_map']
         rgb_map, depth_map = rgb_map.reshape(H, W, 3).cpu(), depth_map.reshape(H, W).cpu()
 
@@ -76,8 +78,14 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
         is_vis_plt = (palette is not None) and ('opaque_map' in res)
         if is_vis_plt:
             opaque = rearrange(res['opaque_map'], '(h w) c-> h w c', h=H, w=W).clamp(0.,1.).cpu()
+            opaque_tmp = opaque.clone()
             plt_decomp = visualize_palette_components_numpy(opaque.numpy(), palette.numpy())
             plt_decomp = (plt_decomp * 255).astype('uint8')
+
+            opaque_tmp[opaque_tmp<=0.3] = 0.
+            plt_decomp_tmp = visualize_palette_components_numpy(opaque_tmp.numpy(),palette.numpy())
+            plt_decomp_tmp = (plt_decomp_tmp * 255).astype('uint8')
+
             plt_decomp_maps.append(plt_decomp)
             plt_opaque_maps.append(opaque.numpy())
         if savePath is not None:
@@ -85,6 +93,7 @@ def evaluation(test_dataset, tensorf, args, renderer, savePath=None, N_vis=5, N_
             imageio.imwrite(os.path.join(savePath, f'depth_{idx:03d}.png'), depth_map)
             if is_vis_plt:
                 imageio.imwrite(os.path.join(savePath, f'plt_decomp_{idx:03d}.png'), plt_decomp)
+                imageio.imwrite(os.path.join(savePath, f'plt_decomp_tmp{idx:03d}.png'),plt_decomp_tmp)
                 np.save(os.path.join(savePath,f'plt_opaque_{idx:03d}.npy'),opaque.numpy())
 
     if save_video and savePath is not None:
@@ -137,7 +146,11 @@ def evaluation_path(test_dataset, tensorf, c2ws, renderer, savePath=None, N_samp
         res = renderer(rays, tensorf, chunk=4096, N_samples=N_samples, ndc_ray=ndc_ray, white_bg=white_bg, device=device,
                        ret_opaque_map=True, new_palette=new_palette,palette=palette,is_choose=is_choose,net1=net1,net2=net2,probability=probability,**kwargs)
         # rgb_map = rend_map[..., :3].clamp(0.0, 1.0)
-        rgb_map = res['rgb_map']+ res['color_correction_map'] @ torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0., 0., 1.]]).to(res['color_correction_map'].device)
+        if 'color_correction_map' in res:
+            rgb_map = res['rgb_map'] + res['color_correction_map'] @ torch.tensor(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0., 0., 1.]]).to(res['color_correction_map'].device)
+        else:
+            rgb_map = res['rgb_map']
         depth_map = res['depth_map']
 
         rgb_map, depth_map = rgb_map.reshape(H, W, 3).cpu(), depth_map.reshape(H, W).cpu()

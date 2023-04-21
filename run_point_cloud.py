@@ -27,7 +27,7 @@ path_redirect = [
     ('palette_path', '../data_palette', './data_palette')
 ]
 #%%
-run_dir = './logs/fruit'
+run_dir = './logs/drums'
 ckpt_path = None
 out_dir = os.path.join(run_dir,'demo_out')
 #%%
@@ -72,7 +72,7 @@ def write_pointcloud(dataset_type='train',true_choice=[0]):
     args,dataset = read_data(dataset_type=dataset_type,)
 
     print("Initializing trainer and model...")
-    ckpt_dir = os.path.join(run_dir,"checkpoints")
+    ckpt_dir = os.path.join(run_dir,"checkpoints_4_00001_00008")
     tb_dir = os.path.join(run_dir,"tensorboard")
 
     trainer = Trainer(args,run_dir,ckpt_dir, tb_dir)
@@ -91,14 +91,14 @@ def write_pointcloud(dataset_type='train',true_choice=[0]):
     #            ndc_ray=False, palette=palette, new_palette=None,device='cuda',filename=None)
 
     "write opaque true idx"
-    write_opaque_with_color_decomposition(dataset, model, args, true_choice=true_choice,renderer=trainer.renderer, eps=0.2, savePath=None, N_vis=2,
-                                               N_samples=-1, white_bg=False,
+    write_opaque_with_color_decomposition(dataset, model, args, true_choice=true_choice,renderer=trainer.renderer, eps=0.2, savePath=None, N_vis=3,
+                                               N_samples=-1, white_bg=True,
                                                ndc_ray=False, palette=palette, new_palette=None, device='cuda',
                                                filename=None)
 
 #%%
 #写点云
-write_pointcloud('train',[0])
+write_pointcloud('train',[2])
 #%%
 
 #读点云

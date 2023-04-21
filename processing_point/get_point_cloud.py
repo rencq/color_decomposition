@@ -164,7 +164,7 @@ def write_opaque_with_color_decomposition(test_dataset, tensorf, args, true_choi
     out_path = "./logs/opaque"
     if not os.path.exists(out_path):
         os.makedirs(out_path)
-
+    img_list = range(test_dataset.all_rays.shape[0])
     for idx in pbar:
         samples = test_rays[idx]
         # samples_original = test_rays_original[idx].view(-1,samples.shape[-1]).to(device)
@@ -188,6 +188,9 @@ def write_opaque_with_color_decomposition(test_dataset, tensorf, args, true_choi
         true_idx = plt_color_decomposition(opaque,rgb_map,palette_rgb=palette,eps=eps,is_opaque=is_vis_plt)
 
         for i in true_choice:
-            filename = f'opaque_{idx}_{i}.npy'
-            out_file = os.path.join(out_path,filename)
-            np.savetxt(out_file,true_idx[i])
+            filename = f'opaque_{img_list[idx]}_{i}.npy'
+            out_file = os.path.join(out_path,f"opaque_{i}")
+            if not os.path.exists(out_file):
+                os.makedirs(out_file)
+            out_file_path = os.path.join(out_file,filename)
+            np.save(out_file_path,true_idx[i])

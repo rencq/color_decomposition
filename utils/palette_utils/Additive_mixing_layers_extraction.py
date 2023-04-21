@@ -241,7 +241,7 @@ def get_unique_colors_and_their_counts(arr):
                 
 ### assume data is in range(0,1)
 
-def Hull_Simplification_determined_version(data, output_prefix, num_thres=0.1, error_thres=2.0/255.0, SAVE=False, option="use_quantitized_colors", slient=True):
+def Hull_Simplification_determined_version(data, output_prefix, num_thres=0.1, error_thres=10.0/255.0, SAVE=False, option="use_quantitized_colors", slient=True):
 #     hull=ConvexHull(data.reshape((-1,3)), qhull_options="Qs")
     hull=ConvexHull(data.reshape((-1,3)))  #计算凸包  颜色信息
     origin_vertices=hull.points[ hull.vertices ]

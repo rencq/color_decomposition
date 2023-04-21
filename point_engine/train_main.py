@@ -4,8 +4,8 @@ from train import  k_fold
 from point_Model.point import point_cloud,point_cloud_classical,point_cloud_classical_num,point_empty
 import os
 
-edit = 0
-indata = f"/root/autodl-tmp/process_data/fruit_opaque/out_point/out/out_point_clouds_{edit}_correct.txt"
+edit = 3
+indata = f"/home/ubuntu/data/fruit/point_cloud/out_point_clouds_correct_{edit}.txt"
 
 output_path = '../logs'
 input = np.loadtxt(indata)
@@ -24,10 +24,10 @@ print("y train\n",y_train)
 model1 = point_empty()
 model2 = point_cloud_classical(3,output)
 
-num_epochs=30
+num_epochs=100
 learning_rate=0.001
 weight_decay=0.01
-batch_size=100000
+batch_size=10000
 
 
 
